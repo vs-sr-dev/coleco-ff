@@ -147,6 +147,8 @@ choice (`-DropNintendo`, `-DropSquare`).
   builds on.
 - **AstralEsper**, for the *Game Mechanics Guide* (GameFAQs), which is the
   reference for the battle formulas and for the list of NES bugs.
+- **[FF Origins](https://www.fforigins.com)**, for confirming spells, weapons
+  and the NES bugs against the extracted tables.
 - Opcode Games, for the Super Game Module and MegaCart designs this port
   depends on.
 
