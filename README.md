@@ -133,6 +133,13 @@ working log and are not included.
 
 ## Credits
 
+In the game, Square's copyright line is kept: on the boot menu, and on the
+title card that appears when you cross the bridge. Nintendo's line is removed
+from that title card on purpose. Nintendo published the NES version and has
+nothing to do with a ColecoVision port, so keeping its name there would credit
+it for something it did not do. `tools/extract_bridge_scene.ps1` makes that
+choice (`-DropNintendo`, `-DropSquare`).
+
 - **Square**, for the game.
 - **Disch**, for the Final Fantasy disassembly. It is the specification this
   port is written against.
