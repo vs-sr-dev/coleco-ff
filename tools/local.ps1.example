@@ -1,0 +1,3 @@
+# Copy to tools/local.ps1 (ignored by git) and adjust.
+# Only needed for the MAME-driven runs (build_all -Snap, run_regressions).
+$MameExe = 'C:\path\to\mame.exe'
