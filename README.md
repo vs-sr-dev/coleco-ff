@@ -124,7 +124,7 @@ named `*_t.rom`, so they cannot be mistaken for the real ROM.
 | `tools/import_assets.ps1` | BYOA: every extractor, with the arguments the build needs |
 | `tools/extract_*.ps1`, `ff1_extract_song.ps1` | The extractors |
 | `tools/build_all.ps1`, `run_regressions.ps1` | Build and test |
-| `docs/` | Design notes, **in Italian**: [deviations from the NES](docs/Coleco_improvements.md), [battle engine](docs/battle_engine_design.md), [NES→TMS9918 colours](docs/colors_nes_to_tms.md) |
+| `docs/` | Design notes: [deviations from the NES](docs/Coleco_improvements.md), [battle engine](docs/battle_engine_design.md), [NES→TMS9918 colours](docs/colors_nes_to_tms.md) |
 
 The project grows in *slices*: each one is a complete copy of the main program
 one step further on. Only the current slice is in the repository. Some comments
@@ -148,9 +148,14 @@ choice (`-DropNintendo`, `-DropSquare`).
 - **AstralEsper**, for the *Game Mechanics Guide* (GameFAQs), which is the
   reference for the battle formulas and for the list of NES bugs.
 - **[FF Origins](https://www.fforigins.com)**, for confirming spells, weapons
-  and the NES bugs against the extracted tables.
+  and the NES bugs against the extracted tables. The site has lately been hard
+  to reach; the [Wayback Machine copy](https://web.archive.org/web/*/fforigins.com)
+  is the more reliable way to read it.
 - Opcode Games, for the Super Game Module and MegaCart designs this port
   depends on.
+
+**Contributors:** Samuele Voltan, and **Claude** (Anthropic), who pair-programs
+the port and co-authors its commits.
 
 ## Licence
 

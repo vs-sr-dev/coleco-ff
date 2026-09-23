@@ -1,225 +1,226 @@
-# Motore di battaglia — piano di attacco (blocco B)
+# Battle engine — plan of attack (block B)
 
-Documento di consegna scritto a fine sessione 12, quando l'architettura dei
-banchi era ancora calda. Serve a far partire la sessione successiva da un
-piano invece che da un'esplorazione.
+Handoff document written at the end of session 12, while the bank
+architecture was still fresh in mind. Its purpose is to let the next session
+start from a plan instead of from an exploration.
 
-## Stato di partenza
+## Starting point
 
-Quello che c'è già e funziona:
+What already exists and works:
 
-- **Schermata di battaglia NES-parity** (slice24-35): sprite dei 4 personaggi
-  a colori, striscia statistiche, box comandi, area mostri, banda di sfondo.
-  Vive in `slice49.c`, funzioni `render_battle_screen` / `battle_tick`.
-- **Encounter byte-parity**: `compute_domain` + `get_battle_formation` +
-  `battle_step_rng` producono la stessa formazione che darebbe il NES.
-  Confermato funzionante dall'utente in sessione 12.
-- **Dati importati e mai usati**, in `src/data/`: `enemy_data.h` (3713 byte),
+- **NES-parity battle screen** (slice24-35): the 4 characters' sprites
+  in color, stats strip, command box, monster area, backdrop band.
+  Lives in `slice49.c`, functions `render_battle_screen` / `battle_tick`.
+- **Byte-parity encounters**: `compute_domain` + `get_battle_formation` +
+  `battle_step_rng` produce the same formation the NES would give.
+  Confirmed working by the user in session 12.
+- **Data imported and never used**, in `src/data/`: `enemy_data.h` (3713 bytes),
   `class_stats.h` (96), `magic_data.h` (832), `weapon_data.h` (406),
   `armor_data.h` (240), `shop_data.h` (935).
 
-Quello che manca è **tutta la logica**: `battle_tick` è una scaffold di
-interfaccia. FIRE1 stampa "CHR1 > FIGHT" e passa al personaggio dopo. Nessun
-danno, nessun nemico che agisce, nessuna vittoria.
+What is missing is **all of the logic**: `battle_tick` is an interface
+scaffold. FIRE1 prints "CHR1 > FIGHT" and moves on to the next character. No
+damage, no enemy that acts, no victory.
 
-## Dove va il codice
+## Where the code goes
 
-Il motore va in un **overlay** (`ovl_battle.c`, banco 20), non nel banco fisso:
-là restano solo 1720 byte liberi e il motore ne vuole molti di più. L'overlay
-ha 16KB tutti suoi. Vedi `memory/code_overlay_architecture.md`.
+The engine goes in an **overlay** (`ovl_battle.c`, bank 20), not in the fixed bank:
+only 1720 bytes are left free there and the engine wants many more. The overlay
+has 16KB all to itself. See `memory/code_overlay_architecture.md`.
 
-Validato in slice51: l'audio continua a suonare mentre un overlay gira, quindi
-la musica di battaglia non è un problema.
+Validated in slice51: audio keeps playing while an overlay runs, so
+battle music is not a problem.
 
-### La divisione delle responsabilità
+### Division of responsibilities
 
-**Nel banco fisso, come `svc_*`** — tutto ciò che serve anche fuori dalla
-battaglia, e tutto ciò che sta sul percorso della NMI.
+**In the fixed bank, as `svc_*`** — everything that is also needed outside
+battle, and everything that sits on the NMI path.
 
-Superficie effettiva dopo slice52 (dichiarata in `src/svc_api.h`, un solo
-posto per entrambe le parti, così le firme non possono divergere in silenzio):
+Actual surface after slice52 (declared in `src/svc_api.h`, a single
+place for both sides, so the signatures cannot silently diverge):
 
 ```
-svc_vwrite / svc_vfill / svc_put_sprite16   primitive VDP
+svc_vwrite / svc_vfill / svc_put_sprite16   VDP primitives
 svc_wait_vblank
-svc_joystick        joystick + tastierino P1 (NON joystick() di libreria)
-svc_battle_load_gfx l'unica che cambia banco: va a prendere le CHR nel banco 2
-                    e rimette il banco 20 prima di tornare
+svc_joystick        joystick + P1 keypad (NOT the library joystick())
+svc_battle_load_gfx the only one that switches bank: fetches the CHR from bank 2
+                    and restores bank 20 before returning
 ```
 
-Il testo (stringhe, cifre, righe piene) l'overlay se lo costruisce da solo
-sopra `svc_vwrite`/`svc_vfill`: nel banco 20 lo spazio abbonda, nella finestra
-fissa no. Il RNG resta nel banco fisso — è condiviso con l'encounter in
-overworld e la sua sequenza è parte della parity — ma finora l'overlay non ne
-ha bisogno, quindi la `svc_rng` non è ancora nata.
+The overlay builds text (strings, digits, filled rows) by itself on top of
+`svc_vwrite`/`svc_vfill`: in bank 20 there is plenty of room, in the fixed
+bank there isn't. The RNG stays in the fixed bank — it is shared with the
+overworld encounter and its sequence is part of the parity — but so far the
+overlay hasn't needed it, so `svc_rng` doesn't exist yet.
 
-**Trappola scoperta in slice52: anche la rodata della LIBRERIA è a rischio.**
-`joystick(3)` di z88dk decodifica il tastierino con una tabella in
-`SECTION rodata_clib`, che il linker piazza a `$E890` — dentro la finestra
-commutabile. Chiamata sotto l'overlay restituiva byte del banco 20 come codici
-tasto. Rimpiazzata da `src/joy.asm`, che tiene codice **e** tabella in
-`SECTION code_user`, cioè nella finestra fissa. La regola «le `svc_` non
-toccano rodata del banco 0» va estesa: vale anche per la rodata che le
-funzioni di libreria si portano dietro.
+**Trap discovered in slice52: the LIBRARY's rodata is at risk too.**
+z88dk's `joystick(3)` decodes the keypad with a table in
+`SECTION rodata_clib`, which the linker places at `$E890` — inside the
+switchable window. Called under the overlay, it returned bytes from bank 20 as
+key codes. Replaced by `src/joy.asm`, which keeps code **and** table in
+`SECTION code_user`, i.e. in the fixed bank. The rule "`svc_` functions don't
+touch bank 0 rodata" must be extended: it also applies to the rodata that
+library functions bring along with them.
 
-**Nell'overlay** — tutto il resto: formule di danno, IA nemica, risoluzione
-del round, magie, ricompense.
+**In the overlay** — everything else: damage formulas, enemy AI, round
+resolution, magic, rewards.
 
-**Vincolo da non violare:** una `svc_*` non deve mai toccare rodata del banco 0,
-che è invisibile mentre l'overlay è mappato. Solo VDP, RAM e argomenti.
+**Constraint not to be violated:** an `svc_*` must never touch bank 0 rodata,
+which is invisible while the overlay is mapped. Only VDP, RAM and arguments.
 
-### Stato condiviso: RAM SGM
+### Shared state: SGM RAM
 
-La RAM SGM (`$2000-$7FFF`) **non dipende dal banco**, quindi è il canale
-naturale fra slice e overlay. Mappa attuale:
+SGM RAM (`$2000-$7FFF`) **does not depend on the bank**, so it is the
+natural channel between slice and overlay. Current map:
 
-| Zona | Uso |
+| Zone | Use |
 |---|---|
-| `$2000-$5FFF` | buffer celle (`world_cells`), usato dall'espansione città |
-| `$6C00-$6FFF` | BSS degli overlay (`overlay_crt0.asm`) |
-| `$7000+` | BSS della slice principale |
+| `$2000-$5FFF` | cell buffer (`world_cells`), used by the town expansion |
+| `$6C00-$6FFF` | overlay BSS (`overlay_crt0.asm`) |
+| `$7000+` | main slice BSS |
 | `$7FFE` | stack |
 
-Il blocco di stato battaglia sta a **`$6000`**, dentro la zona libera
-`$6000-$6BFF`. Struct `battle_state_t` in `src/battle_state.h`, inclusa da
-entrambe le parti (64 byte: formazione, dominio, classi, nomi, HP/HPMAX,
-colori accento, turno, comando, round, risultato). Il campo `magic` è la prova
-che il canale ha funzionato: se l'overlay non lo riconosce stampa
-`BAD BATTLE STATE AT 6000` invece di disegnare una schermata costruita su
-valori a caso. Serve anche alla validazione automatica — `mame_drive_battle.lua`
-riconosce l'ingresso in battaglia leggendo quel magic in RAM, non guardando lo
-schermo. Non passare puntatori a rodata.
+The battle state block sits at **`$6000`**, inside the free zone
+`$6000-$6BFF`. Struct `battle_state_t` in `src/battle_state.h`, included by
+both sides (64 bytes: formation, domain, classes, names, HP/HPMAX,
+accent colors, turn, command, round, result). The `magic` field is the proof
+that the channel worked: if the overlay doesn't recognize it, it prints
+`BAD BATTLE STATE AT 6000` instead of drawing a screen built on
+random values. It also serves automated validation — `mame_drive_battle.lua`
+recognizes entering battle by reading that magic in RAM, not by looking at the
+screen. Do not pass pointers to rodata.
 
-## Ordine delle slice
+## Slice order
 
-Ogni riga è una slice verificabile da sola. L'ordine è scelto perché ognuna
-produce qualcosa di visibile, invece di accumulare motore invisibile.
+Each line is a slice that can be verified on its own. The order is chosen so
+that each one produces something visible, instead of piling up invisible engine.
 
-1. ~~**ovl_battle scheletro**~~ — **FATTA in slice52 (2026-07-26).** La
-   schermata è identica; è cambiato dove gira. Misure: la finestra fissa passa
-   da **1720 a 4509 byte liberi**, l'overlay occupa **5667 dei 16384** byte del
-   banco 20. Validata in MAME senza intervento umano
-   (`tools/mame_drive_battle.lua`): ingresso in battaglia, cursore comandi,
-   salto al CHR col tastierino, conferma comando, fuga e ritorno in overworld.
-2. ~~**Stat reali**~~ — **FATTA in slice53 (2026-07-26).** Il gruppo vive in
-   `src/party_state.h` (RAM SGM `$6100`, layout fedele a `ch_stats` di
-   `variables.inc:367`) e viene inizializzato da `party_init_from_classes()`,
-   che replica `NewGame_LoadStartingStats` (`bank_0F.asm:1811`) — inclusi i due
-   MP di primo livello a mago rosso/bianco/nero, che sul NES stanno in codice e
-   non nella tabella. Verificato in RAM: 35/30/28/25 HP per FT/TH/WM/BM contro
-   i `{35,28,22,22}` inventati, di cui **tre su quattro erano sbagliati**.
-   La battaglia non copia più niente: legge `PARTY` direttamente, perché la RAM
-   SGM è visibile da ogni banco.
-   **A schermo restano solo nome e HP**, come sul NES. Un primo giro mostrava
-   anche forza/agilità e una riga `MP n`: sbagliato per parità (le statistiche
-   in FF1 si vedono solo nel menu, le cariche di magia nel sottomenu magia) e
-   soprattutto **fuorviante**, perché in FF1 non esistono MP come serbatoio
-   unico — sono cariche per livello di magia, e un numero solo le rappresenta
-   male. Le formule del turno fisico si controllano con la sonda in RAM di
-   `tools/mame_drive_battle.lua`, non stampando a schermo numeri che il gioco
-   originale non mostra.
-   `class_stats.h` NON è finito in un banco: sono 96 byte letti una volta sola,
-   e un banco costa 16KB di ROM più un header di simboli. Sta nella rodata
-   della slice e si legge col banco 0 mappato — `party_init_from_classes()`
-   viene chiamata subito dopo `mc_select_bank(0)`, non durante la selezione dei
-   personaggi (là è mappato il banco 1 per il Prelude, e si leggerebbero le sue
-   note come punti forza).
-3. **enemy_data in banco + nemici veri** — nomi, HP, difesa, numero di
-   attacchi della formazione estratta. La schermata smette di essere finta.
-4. ~~**Turno fisico**~~ — **FATTA in slice57 (2026-07-28)**, lato giocatore.
-   Selezione del bersaglio col tastierino, guard `chr_chosen[4]` (il round
-   parte quando tutti i vivi hanno scelto — il salto col tastierino rompe
-   l'ordine lineare), formula del danno da `DoPhysicalAttack`, colpo a vuoto,
-   morte del nemico, vittoria vera. Il gancio provvisorio `*` è sparito.
-   L'unica deviazione dal NES è il **fix #2** del digest AstralEsper: niente
-   troncamento a 255 fra la somma del tiro e la sottrazione dell'evasione. In C
-   viene naturale — il bug del NES nasceva dall'aritmetica a 8 bit, e
-   riprodurlo richiederebbe di *aggiungere* codice.
-   Il fix #1 (critico dal byte dell'arma, non dal suo indice) non è ancora
-   osservabile: in FF1 si parte disarmati e arma 0 dà critico 0 in entrambe le
-   letture. Validata in MAME: 5 IMP uccisi in 5 round, `RESULT=2`, EXP e GP
-   assegnati. Vedi `memory/slice57_physical_turn.md`.
-   **Il danno basso non è un difetto**: senza equipaggiamento il Fighter fa 10
-   e i maghi 1-2, ed è FF1 — le armi si comprano a Coneria.
-5. ~~**IA nemica + ordine di iniziativa**~~ — **FATTA in slice59 (2026-07-28).**
-   Il round non è più del solo gruppo: 13 caselle (9 slot nemico + 4
-   personaggi) mescolate come `DoBattleRound` (`bank_0C.asm:3199`), i nemici
-   colpiscono, i personaggi muoiono, il gruppo può cadere.
-   Costo nella finestra fissa: **zero byte** — sta tutto nell'overlay, che
-   passa da 4535 a 1595 liberi.
-   Dentro: distribuzione **frontale** del bersaglio (4/8 al primo, 2/8, 1/8,
-   1/8 — la ragione per cui in FF1 il Fighter sta in cima), formula del colpo
-   dal lato nemico, `FlashCharacterSprite`, fuga per **morale** bassa con
-   EXP/oro tolti dal bottino, e la sconfitta.
-   Resta fuori il ramo di `Enemy_DoAi` che sceglie magia e attacchi speciali:
-   finisce sempre in `Enemy_DoMagicEffect`, cioè dentro il motore della magia.
-   Vedi `memory/slice59_enemy_ai.md`.
-6. ~~**EXP/GP e passaggio di livello**~~ — **FATTA in slice54.** Curva EXP e
-   dati di livello byte-exact da `bank_0B` (`tools/extract_levelup_data.ps1` →
-   `src/data/levelup_data.h`), nel **banco 11** `btldata_bank.c`, che da qui in
-   poi ospita tutte le tabelle di regole consultate mentre l'overlay è mappato.
-   `svc_award_exp()` divide gli EXP fra i superstiti (l'oro no, minimo 1 a
-   testa), applica e fa salire di livello; ingresso e uscita via `BST`.
-   Include il **fix multi-livello** deciso nel digest AstralEsper: sul NES si
-   sale di un livello solo per battaglia, qui di tutti quelli che gli EXP
-   consentono.
-   Due cose da sapere prima di toccare il resto del motore:
-   **(a)** il RNG di battaglia è ora **separato** da `battle_step_rng`, la cui
-   sequenza è parte della parity dell'encounter — ma è un segnaposto, va
-   sostituito col `BattleRNG` del NES quando arriva il turno fisico;
-   **(b)** `ff1_rng_lut` è copiata in RAM (`rng_lut_cache`) perché era rodata,
-   quindi illeggibile sotto qualunque banco diverso dallo 0.
-   Resta fuori `LvlUp_AdjustBBSubStats` (danno e assorbimento del monaco a mani
-   nude), lasciata non implementata invece che indovinata.
-7. **Magia** — lista incantesimi, cariche, effetti base, e i fix ai bug NES già
-   decisi in `memory/spell_bugs_ff1nes_to_fix.md`.
-   **Attenzione al modello:** in FF1 non ci sono MP come serbatoio unico. Ci
-   sono **8 livelli di magia, ognuno con le sue cariche** (`curmp[8]`/`maxmp[8]`
-   in `party_state.h`, come `ch_curmp`/`ch_maxmp` sul NES). Il sottomenu della
-   magia è il posto dove si vedono, un livello per riga — non un totale.
-   A nuova partita mago rosso/bianco/nero partono con 2 cariche di livello 1 e
-   zero su tutto il resto.
-8. **Fuga + musica** — **FATTA in slice52.** La fuga c'era già dalla scaffold.
-   `sng50` vive nel **banco 10** (`src/song_bank.c`) e suona mentre l'overlay
-   gira nel banco 20 — la NMI salta fra i due a ogni frame.
-   `init_bank1_song` è diventata `init_bank_song(bank, ...)`.
-   **Sequenza di vittoria completa**: `sng53` + animazione di esultanza
-   (`run_victory` in `ovl_battle.c`), che ricalca `PlayFanfareAndCheer`
-   (`bank_0C.asm:2435`): 128 frame alternando esultanza e posa in piedi ogni
-   16, poi posa naturale e riquadro di vittoria.
-   Manca solo il **riquadro delle ricompense** (EXP/GP), che dipende dalla
+1. ~~**ovl_battle skeleton**~~ — **DONE in slice52 (2026-07-26).** The
+   screen is identical; what changed is where it runs. Measurements: the fixed
+   bank goes from **1720 to 4509 free bytes**, the overlay takes **5667 of the
+   16384** bytes of bank 20. Validated in MAME with no human intervention
+   (`tools/mame_drive_battle.lua`): entering battle, command cursor,
+   jumping to a CHR with the keypad, command confirmation, escape and return to
+   the overworld.
+2. ~~**Real stats**~~ — **DONE in slice53 (2026-07-26).** The party lives in
+   `src/party_state.h` (SGM RAM `$6100`, layout faithful to `ch_stats` from
+   `variables.inc:367`) and is initialized by `party_init_from_classes()`,
+   which replicates `NewGame_LoadStartingStats` (`bank_0F.asm:1811`) — including
+   the two level-1 MP of the red/white/black mage, which on the NES live in code
+   and not in the table. Verified in RAM: 35/30/28/25 HP for FT/TH/WM/BM versus
+   the made-up `{35,28,22,22}`, of which **three out of four were wrong**.
+   The battle no longer copies anything: it reads `PARTY` directly, because SGM
+   RAM is visible from every bank.
+   **Only name and HP remain on screen**, as on the NES. A first pass also
+   showed strength/agility and an `MP n` row: wrong for parity (in FF1 stats
+   are only visible in the menu, magic charges in the magic submenu) and
+   above all **misleading**, because FF1 has no MP as a single pool
+   — they are charges per spell level, and a single number represents them
+   badly. The physical-turn formulas are checked with the RAM probe in
+   `tools/mame_drive_battle.lua`, not by printing on screen numbers the
+   original game doesn't show.
+   `class_stats.h` did NOT end up in a bank: it's 96 bytes read only once,
+   and a bank costs 16KB of ROM plus a symbol header. It sits in the slice's
+   rodata and is read with bank 0 mapped — `party_init_from_classes()`
+   is called right after `mc_select_bank(0)`, not during character
+   selection (bank 1 is mapped there for the Prelude, and its notes would be
+   read as strength points).
+3. **enemy_data in a bank + real enemies** — names, HP, defense, number of
+   attacks of the extracted formation. The screen stops being fake.
+4. ~~**Physical turn**~~ — **DONE in slice57 (2026-07-28)**, player side.
+   Target selection with the keypad, `chr_chosen[4]` guard (the round
+   starts when all living characters have chosen — jumping with the keypad breaks
+   the linear order), damage formula from `DoPhysicalAttack`, misses,
+   enemy death, real victory. The temporary `*` hook is gone.
+   The only deviation from the NES is **fix #2** from the AstralEsper digest: no
+   truncation to 255 between the roll sum and the evasion subtraction. In C
+   it comes naturally — the NES bug came from 8-bit arithmetic, and
+   reproducing it would require *adding* code.
+   Fix #1 (critical from the weapon's byte, not from its index) is not yet
+   observable: in FF1 you start unarmed and weapon 0 gives critical 0 under both
+   readings. Validated in MAME: 5 IMPs killed in 5 rounds, `RESULT=2`, EXP and GP
+   awarded. See `memory/slice57_physical_turn.md`.
+   **Low damage is not a defect**: without equipment the Fighter does 10
+   and the mages 1-2, and that's FF1 — weapons are bought in Coneria.
+5. ~~**Enemy AI + initiative order**~~ — **DONE in slice59 (2026-07-28).**
+   The round no longer belongs to the party alone: 13 slots (9 enemy slots + 4
+   characters) shuffled like `DoBattleRound` (`bank_0C.asm:3199`), the enemies
+   hit, the characters die, the party can fall.
+   Cost in the fixed bank: **zero bytes** — it all lives in the overlay, which
+   goes from 4535 to 1595 free.
+   Inside: **front-weighted** target distribution (4/8 to the first, 2/8, 1/8,
+   1/8 — the reason why in FF1 the Fighter goes on top), hit formula
+   from the enemy side, `FlashCharacterSprite`, fleeing on low **morale** with
+   EXP/gold removed from the loot, and defeat.
+   Left out is the branch of `Enemy_DoAi` that picks magic and special attacks:
+   it always ends up in `Enemy_DoMagicEffect`, i.e. inside the magic engine.
+   See `memory/slice59_enemy_ai.md`.
+6. ~~**EXP/GP and level up**~~ — **DONE in slice54.** EXP curve and
+   level data byte-exact from `bank_0B` (`tools/extract_levelup_data.ps1` →
+   `src/data/levelup_data.h`), in **bank 11** `btldata_bank.c`, which from here
+   on hosts all the rule tables consulted while the overlay is mapped.
+   `svc_award_exp()` splits the EXP among the survivors (not the gold, minimum 1
+   each), applies it and levels up; input and output via `BST`.
+   It includes the **multi-level fix** decided in the AstralEsper digest: on the NES
+   you only gain one level per battle, here as many as the EXP
+   allow.
+   Two things to know before touching the rest of the engine:
+   **(a)** the battle RNG is now **separate** from `battle_step_rng`, whose
+   sequence is part of the encounter parity — but it's a placeholder, to be
+   replaced with the NES `BattleRNG` when the physical turn arrives;
+   **(b)** `ff1_rng_lut` is copied into RAM (`rng_lut_cache`) because it was rodata,
+   hence unreadable under any bank other than 0.
+   Left out is `LvlUp_AdjustBBSubStats` (bare-handed damage and absorb for the
+   monk), left unimplemented rather than guessed.
+7. **Magic** — spell list, charges, basic effects, and the fixes to the NES bugs
+   already decided in `memory/spell_bugs_ff1nes_to_fix.md`.
+   **Watch the model:** in FF1 there are no MP as a single pool. There
+   are **8 spell levels, each with its own charges** (`curmp[8]`/`maxmp[8]`
+   in `party_state.h`, like `ch_curmp`/`ch_maxmp` on the NES). The magic
+   submenu is where they are shown, one level per row — not a total.
+   On a new game the red/white/black mage start with 2 level-1 charges and
+   zero on everything else.
+8. **Escape + music** — **DONE in slice52.** Escape was already there from the scaffold.
+   `sng50` lives in **bank 10** (`src/song_bank.c`) and plays while the overlay
+   runs in bank 20 — the NMI jumps between the two every frame.
+   `init_bank1_song` became `init_bank_song(bank, ...)`.
+   **Full victory sequence**: `sng53` + cheer animation
+   (`run_victory` in `ovl_battle.c`), which mirrors `PlayFanfareAndCheer`
+   (`bank_0C.asm:2435`): 128 frames alternating cheer and standing pose every
+   16, then natural pose and victory box.
+   Only the **rewards box** (EXP/GP) is missing, which depends on
    slice 6.
-   **Gancio provvisorio da rimuovere:** il tasto `*` del tastierino finge una
-   vittoria, perché senza combattimento la sequenza non avrebbe modo di
-   partire. Sparisce quando la risoluzione del round sa far morire i nemici;
-   la chiamata a `run_victory` resta dov'è.
+   **Temporary hook to remove:** the keypad's `*` key fakes a
+   victory, because without combat the sequence would have no way to
+   start. It goes away when round resolution can kill enemies;
+   the call to `run_victory` stays where it is.
 
-## Debito già noto da rispettare
+## Known debt to honor
 
-- **Guardia di inizio round** (`memory/battle_round_logic_todo.md`): con il
-  tastierino si può saltare da un personaggio all'altro in ordine libero, quindi
-  serve `chr_action_chosen[4]` e il round si risolve solo quando tutti e quattro
-  hanno scelto. Non assumere l'ordine lineare della scaffold.
-- **Quirk da preservare** (`memory/ff1_preserved_quirks.md`) contro
-  **bug da correggere** (`memory/ff1_engine_intent_priorities.md`): sono due
-  liste distinte, vanno consultate entrambe prima di scrivere una formula.
+- **Round start guard** (`memory/battle_round_logic_todo.md`): with the
+  keypad you can jump from one character to another in any order, so
+  `chr_action_chosen[4]` is needed and the round resolves only when all four
+  have chosen. Do not assume the scaffold's linear order.
+- **Quirks to preserve** (`memory/ff1_preserved_quirks.md`) versus
+  **bugs to fix** (`memory/ff1_engine_intent_priorities.md`): they are two
+  distinct lists, and both must be checked before writing a formula.
 
-## Da leggere all'inizio della sessione
+## To read at the start of the session
 
-1. `memory/ff1_engine_intent_priorities.md` — i 15 fix decisi
-2. `memory/spell_bugs_ff1nes_to_fix.md` — magia
-3. `memory/battle_round_logic_todo.md` — la guardia di round
-4. `src/data/enemy_data.h` e `class_stats.h` — formati
-5. `src/slice49.c`, sezione battaglia — la scaffold da travasare
-6. `docs/Coleco_improvements.md` — da aggiornare a ogni scelta non-parity
+1. `memory/ff1_engine_intent_priorities.md` — the 15 decided fixes
+2. `memory/spell_bugs_ff1nes_to_fix.md` — magic
+3. `memory/battle_round_logic_todo.md` — the round guard
+4. `src/data/enemy_data.h` and `class_stats.h` — formats
+5. `src/slice49.c`, battle section — the scaffold to port over
+6. `docs/Coleco_improvements.md` — to be updated at every non-parity choice
 
-## Comando di build
+## Build command
 
 ```ps1
 .\tools\build_all.ps1 -Slice slice52 -Overlays 'ovl_battle:20' -Run
 ```
 
-## Validazione automatica
+## Automated validation
 
 ```ps1
 mame coleco -exp sgm -cart build\slice52_mc512.rom -rompath mame_roms `
@@ -228,13 +229,13 @@ mame coleco -exp sgm -cart build\slice52_mc512.rom -rompath mame_roms `
     -snapshot_directory build\snap_slice52
 ```
 
-Due trappole nello script Lua, entrambe già pagate:
+Two traps in the Lua script, both already paid for:
 
-- **I campi input vanno cercati per porta**, non per nome. Nel driver coleco
-  `P1 Button 1` esiste sia in `:STD_JOY1` sia in `:DRIV_PEDAL1`, e
-  `P1 Down`/`P1 Right` sia in `:STD_JOY1` sia in `:SAC_JOY1`. Cercando per solo
-  nome, con `pairs()` che ha ordine imprevedibile, metà dei comandi finiva su
-  un controller che la ROM non legge — e sembrava un bug del gioco.
-- **I due fire sono invertiti rispetto ai nomi**: MAME `:STD_JOY1 :: P1 Button 1`
-  è `MOVE_FIRE2` per z88dk (letto in modo joystick), MAME
-  `:STD_KEYPAD1 :: P1 Button 2` è `MOVE_FIRE1` (letto in modo tastierino).
+- **Input fields must be looked up by port**, not by name. In the coleco driver
+  `P1 Button 1` exists both in `:STD_JOY1` and in `:DRIV_PEDAL1`, and
+  `P1 Down`/`P1 Right` both in `:STD_JOY1` and in `:SAC_JOY1`. Looking up by
+  name only, with `pairs()` having unpredictable order, half the commands ended up on
+  a controller the ROM doesn't read — and it looked like a game bug.
+- **The two fire buttons are swapped relative to their names**: MAME `:STD_JOY1 :: P1 Button 1`
+  is `MOVE_FIRE2` for z88dk (read in joystick mode), MAME
+  `:STD_KEYPAD1 :: P1 Button 2` is `MOVE_FIRE1` (read in keypad mode).

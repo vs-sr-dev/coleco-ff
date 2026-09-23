@@ -1,734 +1,734 @@
 # Final Fantasy — Coleco Port Improvements vs NES Original
 
-Catalogo delle modifiche/migliorie introdotte rispetto al Final Fantasy NES (USA) nel
-porting per ColecoVision. Vivono **assieme** alla parity NES per le meccaniche di
-gameplay; sono aggiunte non-distruttive che sfruttano hardware/UX della Coleco o
-correggono bug ROM oggettivi.
+Catalog of the changes/improvements introduced relative to Final Fantasy NES (USA) in
+the ColecoVision port. They live **alongside** NES parity for gameplay mechanics;
+they are non-destructive additions that exploit Coleco hardware/UX or
+fix objective ROM bugs.
 
-Aggiornato: 2026-05-08 (sessione 6).
+Updated: 2026-05-08 (session 6).
 
 ---
 
 ## 1. UX / input
 
-### 1.1 Numpad keypad come direct-select
-- **Cosa:** Tasti `1`-`4` del keypad Coleco saltano direttamente al CHR
-  corrispondente nello schermo party / class-select / (in futuro) target di battle.
-- **Perché:** Il keypad è un upgrade hardware Coleco assente sul NES. Sfruttarlo
-  evita navigation paddy-style D-pad (slow). Coerente con `design_input.md`.
-- **Status:** ✅ implementato in slice22b (class select); da estendere a battle
-  command target select e menu inventario.
+### 1.1 Numpad keypad as direct-select
+- **What:** Keys `1`-`4` on the Coleco keypad jump directly to the corresponding
+  CHR on the party / class-select / (in future) battle target screen.
+- **Why:** The keypad is a Coleco hardware upgrade absent on the NES. Using it
+  avoids paddy-style D-pad navigation (slow). Consistent with `design_input.md`.
+- **Status:** ✅ implemented in slice22b (class select); to be extended to battle
+  command target select and the inventory menu.
 
-### 1.2 Tasto `*` come "confirm party"
-- **Cosa:** Pulsante dedicato `*` nel keypad per confermare il party post-class-select
-  e procedere allo start del gioco. Distinto dai tasti 1-4 (jump CHR).
-- **Perché:** Su NES il flow lineare auto-procedeva. Con jump 1-4 serve un
-  trigger esplicito. `*` riservato per "commit/done", `#` libero per future use
-  (es. cancel/back globale).
-- **Status:** ✅ implementato in slice22b. Richiede tutti e 4 CHR named.
+### 1.2 `*` key as "confirm party"
+- **What:** Dedicated `*` button on the keypad to confirm the party after class-select
+  and proceed to game start. Distinct from keys 1-4 (CHR jump).
+- **Why:** On NES the linear flow auto-advanced. With the 1-4 jump an
+  explicit trigger is needed. `*` reserved for "commit/done", `#` free for future use
+  (e.g. global cancel/back).
+- **Status:** ✅ implemented in slice22b. Requires all 4 CHR named.
 
-### 1.3 Nomi CHR a 6 caratteri (vs NES 4)
-- **Cosa:** Buffer nome personaggio aumentato da 4 → 6 char.
-- **Perché:** Su NES la limitazione era display/cart constraint (4-char box nel
-  battle status). Coleco mode 2 ha più spazio cella (14 col vs ~10 NES). Permette
-  nomi più descrittivi (es. "GANDLF" vs "GAND").
-- **Costo:** +8 byte save state (4 CHR × 2 byte extra) → ~+1 char nella password
-  finale. Trascurabile.
-- **Status:** ✅ implementato in slice22b.
+### 1.3 6-character CHR names (vs NES 4)
+- **What:** Character name buffer increased from 4 → 6 chars.
+- **Why:** On NES the limitation was a display/cart constraint (4-char box in the
+  battle status). Coleco mode 2 has more cell space (14 col vs ~10 NES). Allows
+  more descriptive names (e.g. "GANDLF" vs "GAND").
+- **Cost:** +8 bytes of save state (4 CHR × 2 extra bytes) → ~+1 char in the final
+  password. Negligible.
+- **Status:** ✅ implemented in slice22b.
 
 ### 1.4 NES-parity flow + non-NES enhancements coexist
-- **Cosa:** Il flow class-select segue la NES-parity (D-pad cycle, FIRE1 name,
-  FIRE2 cycle backward) **+** add-on Coleco (1-4 jump, * confirm).
-- **Why:** Player NES-faithful può ignorare il keypad e usare solo joystick →
-  esperienza identica al NES. Player Coleco-savvy usa keypad → UX più rapida.
+- **What:** The class-select flow follows NES parity (D-pad cycle, FIRE1 name,
+  FIRE2 cycle backward) **+** Coleco add-ons (1-4 jump, * confirm).
+- **Why:** A NES-faithful player can ignore the keypad and use only the joystick →
+  experience identical to the NES. A Coleco-savvy player uses the keypad → faster UX.
 
-### 1.5 Il negozio: l'acquisto EQUIPAGGIA
-- **Cosa:** comprata un'arma o un'armatura, se la classe puo' portarla e il
-  posto e' libero (una sola arma; una corazza, uno scudo, un elmo, un guanto)
-  viene **indossata subito**. Se il posto e' occupato resta nello zaino, con il
-  bit 7 spento, esattamente come sul NES.
-- **Perche':** sul NES l'acquisto mette l'oggetto nell'inventario e per
-  indossarlo si passa dal MENU (`ReadjustEquipStats`). Il menu qui non esiste
-  ancora: senza il passo automatico, comprare non cambierebbe **un solo numero
-  visibile** e il gruppo resterebbe disarmato — cioe' meta' delle formule del
-  turno fisico continuerebbe a girare su zeri.
-- **Le condizioni sono quelle del NES**, non piu' larghe: `IsEquipLegal`
-  (bank_0E.asm:9060) prova il permesso di classe e un pezzo per tipo. Cio' che
-  NON facciamo e' il "togli l'altro": togliere qualcosa che il giocatore ha
-  scelto di indossare non e' compito di un acquisto.
-- **Reversibile:** quando arrivera' il menu di equipaggiamento, potra' disfare —
-  e a quel punto la scelta si potra' anche rimettere in discussione.
-- **DISFACIBILE DA slice74.** Il menu di equipaggiamento c'e' (§1.11): quello
-  che il negozio mette addosso si toglie, si passa a un altro e si butta. La
-  deviazione resta — comprare equipaggia — ma da comodita', non da condanna.
-- **Status:** implementato in slice66 (armi e armature). Validato a MAME,
-  44 controlli su 44.
+### 1.5 The shop: buying EQUIPS
+- **What:** when a weapon or armor is bought, if the class can wear it and the
+  slot is free (only one weapon; one body armor, one shield, one helmet, one glove)
+  it is **equipped immediately**. If the slot is taken it stays in the pack, with
+  bit 7 clear, exactly as on the NES.
+- **Why:** on the NES a purchase puts the item in the inventory, and to
+  equip it you go through the MENU (`ReadjustEquipStats`). The menu doesn't exist here
+  yet: without the automatic step, buying would not change **a single visible
+  number** and the party would stay unarmed — meaning half the formulas of the
+  physical turn would keep running on zeros.
+- **The conditions are the NES ones**, not looser: `IsEquipLegal`
+  (bank_0E.asm:9060) checks the class permission and one piece per type. What we
+  do NOT do is "take off the other one": removing something the player has
+  chosen to wear is not a purchase's job.
+- **Reversible:** when the equipment menu arrives, it will be able to undo this —
+  and at that point the choice itself can be reconsidered.
+- **UNDOABLE SINCE slice74.** The equipment menu exists (§1.11): what the shop
+  puts on can be taken off, handed to someone else, and thrown away. The
+  deviation stays — buying equips — but as a convenience, not a sentence.
+- **Status:** implemented in slice66 (weapons and armor). Validated in MAME,
+  44 checks out of 44.
 
-### 1.6 Il divieto di classe si vede PRIMA di comprare
-- **Cosa:** nella schermata "a chi lo do?" i personaggi che non possono portare
-  la voce puntata sono marcati `NO`.
-- **Perche':** sul NES il divieto si scopre solo dal menu, dopo aver pagato: la
-  spada comprata al mago resta nello zaino a non servire a niente, e nessuna
-  schermata lo dice mai. L'informazione c'e' gia' (i permessi viaggiano col
-  listino), mostrarla non costa niente e non toglie nulla a chi vuole comprare
-  lo stesso — l'acquisto resta permesso, come sul NES.
-- **Status:** implementato in slice66.
+### 1.6 The class restriction is shown BEFORE buying
+- **What:** on the "who gets it?" screen, the characters who cannot wear the
+  highlighted entry are marked `NO`.
+- **Why:** on the NES the restriction is only discovered from the menu, after paying: the
+  sword bought for the mage sits in the pack doing nothing, and no
+  screen ever says so. The information is already there (the permissions travel with the
+  price list); showing it costs nothing and takes nothing away from someone who wants to buy
+  anyway — the purchase stays allowed, as on the NES.
+- **Status:** implemented in slice66.
 
-### 1.6bis Il negozio di magia dice PERCHE' no
-- **Cosa:** nella riga di ogni personaggio il negozio di magia mostra il
-  livello dell'incantesimo puntato, quante magie di quel livello quel
-  personaggio conosce gia' (`2/3`), e una di tre etichette: `NO` (la classe non
-  puo' impararla), `KNOWN` (la sa gia'), `FULL` (i tre posti del livello sono
-  occupati).
-- **Perche':** sono esattamente i tre rifiuti di `MagicShop_AssertLearn`, e sul
-  NES si scoprono **uno alla volta e solo provando** — si sceglie il
-  personaggio, si conferma, e solo allora una finestra dice di no. Il conto per
-  saperlo prima e' lo stesso che il negozio fa comunque per decidere: mostrarlo
-  non aggiunge informazione al gioco, toglie tentativi a vuoto. I rifiuti
-  restano tutti al loro posto e con i loro messaggi: chi preme lo stesso vede
-  la stessa risposta del NES.
-- **Nota di parita':** il tetto di **tre** magie per livello, la scelta fra
-  **otto**, e il fatto che imparare non si possa disfare sono NES-fedeli e non
-  si toccano — sono il gioco.
-- **Status:** implementato in slice67.
+### 1.6bis The magic shop says WHY not
+- **What:** in each character's row the magic shop shows the
+  level of the highlighted spell, how many spells of that level that
+  character already knows (`2/3`), and one of three labels: `NO` (the class can't
+  learn it), `KNOWN` (already knows it), `FULL` (the level's three slots are
+  taken).
+- **Why:** these are exactly the three refusals of `MagicShop_AssertLearn`, and on the
+  NES they are discovered **one at a time and only by trying** — you pick the
+  character, confirm, and only then does a window say no. The computation to
+  know it beforehand is the same one the shop does anyway to decide: showing it
+  adds no information to the game, it removes wasted attempts. The refusals
+  all stay in place with their messages: whoever presses anyway sees
+  the same answer as on the NES.
+- **Parity note:** the cap of **three** spells per level, the choice among
+  **eight**, and the fact that learning cannot be undone are NES-faithful and
+  untouched — they are the game.
+- **Status:** implemented in slice67.
 
-### 1.6ter Sottomenu della magia: livelli col tastierino
-- **Cosa:** nel sottomenu della magia in battaglia i tasti `1`-`8` saltano
-  direttamente al livello, e la pagina (L1-4 / L5-8) **segue** il livello
-  scelto invece di essere un comando a parte.
-- **Perche':** sul NES la pagina si cambia con un tasto apposito perche' non
-  c'e' altro modo. Con otto livelli e tre caselle, arrivare a una magia di
-  livello 7 vuol dire contare i passi del cursore -- che e' esattamente il
-  lavoro che il tastierino esiste per evitare (vedi 1.1). Le direzioni
-  continuano a funzionare identiche per chi le preferisce.
-- **Nota:** le CARICHE di ogni livello (`n/m`) si vedono qui e solo qui, come
-  sul NES: la striscia di battaglia mostra nome e HP e basta. Non e' una
-  mancanza -- in FF1 gli "MP" non sono un serbatoio ma otto contatori, e un
-  numero unico sotto gli HP li rappresenterebbe male.
-- **Status:** implementato in slice68.
+### 1.6ter Magic submenu: levels via the keypad
+- **What:** in the battle magic submenu, keys `1`-`8` jump
+  directly to the level, and the page (L1-4 / L5-8) **follows** the chosen
+  level instead of being a separate command.
+- **Why:** on the NES the page is changed with a dedicated button because there's no
+  other way. With eight levels and three slots, reaching a
+  level 7 spell means counting cursor steps -- which is exactly the
+  work the keypad exists to avoid (see 1.1). The directions
+  keep working identically for those who prefer them.
+- **Note:** the CHARGES of each level (`n/m`) are shown here and only here, as
+  on the NES: the battle strip shows name and HP and nothing else. It's not a
+  gap -- in FF1 "MP" isn't a pool but eight counters, and a
+  single number under the HP would represent them poorly.
+- **Status:** implemented in slice68.
 
-### 1.7 Tastierino nel negozio
-- **Cosa:** i tasti `1`-`5` scelgono la voce del listino, `1`-`4` il
-  personaggio, senza passare dal cursore.
-- **Perche':** stessa ragione di 1.1 — il tastierino e' hardware che il NES non
-  aveva. Il D-pad continua a funzionare identico per chi lo ignora.
-- **Status:** implementato in slice66.
+### 1.7 Keypad in the shop
+- **What:** keys `1`-`5` choose the price-list entry, `1`-`4` the
+  character, without going through the cursor.
+- **Why:** same reason as 1.1 — the keypad is hardware the NES didn't
+  have. The D-pad keeps working identically for those who ignore it.
+- **Status:** implemented in slice66.
 
-### 1.8 Il negozio di oggetti mostra QUANTE ne hai gia'
-- **Cosa:** accanto a ogni voce del listino, la colonna `IN PACK` con la
-  quantita' gia' in zaino. Sul NES quel numero si vede solo uscendo dal negozio
-  e aprendo il menu.
-- **Perche':** l'unica domanda che ci si fa davanti a un negozio di pozioni e'
-  "quante ne ho gia'". Farla costare due schermate e' un attrito senza contenuto
-  di gioco. In piu' rende VISIBILE l'acquisto: la quantita' che sale da 0 a 1 e'
-  la conferma che il negozio ha funzionato.
-- **Status:** implementato in slice71.
+### 1.8 The item shop shows HOW MANY you already have
+- **What:** next to each price-list entry, the `IN PACK` column with the
+  quantity already in the pack. On the NES that number is only visible by leaving the shop
+  and opening the menu.
+- **Why:** the only question you ask in front of a potion shop is
+  "how many do I already have". Making it cost two screens is friction with no gameplay
+  content. Plus it makes the purchase VISIBLE: the quantity going from 0 to 1 is
+  the confirmation that the shop worked.
+- **Status:** implemented in slice71.
 
-### 1.9 Il menu su FIRE2, e i comandi col tastierino
-- **Cosa:** FIRE2 apre il menu dall'overworld e dalla citta'; i tasti `1`-`5`
-  scelgono ITEM/MAGIC/WEAPON/ARMOR/STATUS e `1`-`4` il personaggio.
-- **Perche':** sul NES il menu si apre con START, che sul Coleco non esiste.
-  FIRE2 era libero in tutti e due i cicli di gioco. Il tastierino e' la solita
-  scorciatoia di 1.1: sul NES arrivare a STATUS costa quattro pressioni.
-- **Status:** implementato in slice73.
+### 1.9 The menu on FIRE2, and commands via the keypad
+- **What:** FIRE2 opens the menu from the overworld and from town; keys `1`-`5`
+  choose ITEM/MAGIC/WEAPON/ARMOR/STATUS and `1`-`4` the character.
+- **Why:** on the NES the menu opens with START, which doesn't exist on the Coleco.
+  FIRE2 was free in both game loops. The keypad is the usual
+  shortcut from 1.1: on the NES getting to STATUS costs four presses.
+- **Status:** implemented in slice73.
 
-### 1.10 La schermata delle statistiche mostra TUTTO, INT compreso
-- **Cosa:** una schermata sola con le cinque statistiche base, le cinque
-  derivate accanto, gli otto contatori di magia, EXP, quanto MANCA al livello
-  dopo, e l'equipaggiamento con l'asterisco su cio' che e' indossato.
-- **Perche':** sul NES le stesse informazioni sono sparse fra due schermate, e
-  `ch_exptonext` e' un campo che il gioco calcola *e non usa mai*. Da noi INT ha
-  smesso di essere una statistica morta (§3.3): una statistica che nessuno puo'
-  leggere e una statistica che non esiste si somigliano troppo.
-- **Nota di parita':** il **totale** da raggiungere sarebbe il dato del ROM; qui
-  si mostra la **differenza**, perche' il totale da solo obbliga a fare la
-  sottrazione a mente ogni volta.
-- **Status:** implementato in slice73.
+### 1.10 The stats screen shows EVERYTHING, INT included
+- **What:** a single screen with the five base stats, the five
+  derived ones beside them, the eight magic counters, EXP, how much is LEFT to the next
+  level, and the equipment with an asterisk on what is equipped.
+- **Why:** on the NES the same information is scattered across two screens, and
+  `ch_exptonext` is a field the game computes *and never uses*. Here INT has
+  stopped being a dead stat (§3.3): a stat nobody can
+  read and a stat that doesn't exist look too much alike.
+- **Parity note:** the **total** to reach would be the ROM's value; here
+  the **difference** is shown, because the total alone forces you to do the
+  subtraction in your head every time.
+- **Status:** implemented in slice73.
 
-### 1.11 WEAPON / ARMOR: i tre modi in un tasto, e niente lampeggio (slice74)
-- **Cosa:** la griglia dell'equipaggiamento mostra tutte e sedici le caselle del
-  gruppo (come il NES) e i tre modi **EQUIP / TRADE / DROP** si scelgono col
-  tastierino `1`-`3`, senza entrare e uscire da un sottomenu. Il cursore resta
-  sempre sulla griglia: il tasto decide che cosa fa FIRE1.
-- **Perche':** sul NES il modo e' un secondo livello (`eq_modecurs`, A per
-  entrare, B per uscire — `EnterEquipMenu`, bank_0E.asm:8845) perche' i tasti
-  sono due. Con dodici tasti in piu' quel livello e' solo un costo. E' la stessa
-  scorciatoia di §1.1, §1.7 e §1.9.
-- **Cosa cambia rispetto al NES, in concreto:** togliersi un'arma per darla a un
-  altro costava sul NES cinque pressioni (B, giu', A, muovi, A); qui ne costa
-  tre.
-- **Niente lampeggio:** il NES fa lampeggiare il secondo cursore del TRADE e
-  quello della conferma del DROP. Qui i due cursori sono **due caratteri
-  diversi** (`>` dove si e', `<` su cio' che si e' preso) e la conferma e'
-  scritta a parole. Non e' solo leggibilita': una posizione a schermo che vale
-  come prova dev'essere **asseribile** dalla VRAM (regola di slice66), e un
-  carattere che c'e' un quadro su due non lo e'.
-- **Il resto e' NES-fedele**, comprese le due regole che si notano giocando: un
-  pezzo scambiato esce **spento** da tutte e due le parti (il permesso del nuovo
-  proprietario non l'ha chiesto nessuno), e **togliersi** qualcosa non passa mai
-  dal controllo di classe.
-- **Status:** implementato in slice74. Validato a MAME, 64 controlli su 64.
+### 1.11 WEAPON / ARMOR: the three modes on one key, and no blinking (slice74)
+- **What:** the equipment grid shows all sixteen of the
+  party's slots (like the NES), and the three modes **EQUIP / TRADE / DROP** are chosen with
+  keypad `1`-`3`, without entering and leaving a submenu. The cursor always stays
+  on the grid: the key decides what FIRE1 does.
+- **Why:** on the NES the mode is a second level (`eq_modecurs`, A to
+  enter, B to leave — `EnterEquipMenu`, bank_0E.asm:8845) because there are
+  two buttons. With twelve extra keys that level is just a cost. It's the same
+  shortcut as §1.1, §1.7 and §1.9.
+- **What changes compared to the NES, concretely:** taking off a weapon to give it to
+  someone else cost five presses on the NES (B, down, A, move, A); here it costs
+  three.
+- **No blinking:** the NES blinks the second TRADE cursor and the
+  DROP confirmation one. Here the two cursors are **two different
+  characters** (`>` where you are, `<` on what you picked up) and the confirmation is
+  written out in words. It's not just readability: a screen position that counts
+  as evidence must be **assertable** from VRAM (slice66 rule), and a
+  character that is there every other frame is not.
+- **The rest is NES-faithful**, including the two rules you notice while playing: a
+  traded piece comes out **unequipped** on both sides (nobody asked about the new
+  owner's permission), and **taking off** something never goes
+  through the class check.
+- **Status:** implemented in slice74. Validated in MAME, 64 checks out of 64.
 
-### 1.12 MAGIC fuori dalla battaglia: tre correzioni di intento (slice75)
-- **CUR4 rifiuta chi non puo' essere curato.** Sul NES non controlla le
-  alterazioni — il disassembly stesso scrive `BUGGED` (bank_0E.asm:6547):
-  lanciata su un caduto o un pietrificato ne riempie gli HP, e quello resta
-  caduto o pietrificato. Il risultato e' una carica di settimo livello spesa per
-  niente **con la schermata che mostra il numero salito**, cioe' il peggior
-  genere di bug: quello che sembra aver funzionato. Qui rifiuta come tutta la
-  famiglia CURE, e la carica non si consuma.
-- **WARP ed EXIT non pagano se non c'e' un posto dove andare.** Sul NES la
-  carica si consuma comunque (`DEC ch_magicdata` prima del salto). Da noi il
-  rifiuto arriva prima di pagare, come per ogni altro rifiuto del menu.
-- **Il tiro non viene piu' dal contatore dei quadri.** Sul NES la quantita'
-  curata e' `framecounter` mascherato, un ripiego che il commento del
-  disassembly dichiara tale ("make-shift pRNG", bank_0E.asm:6474) perche' fuori
-  dalla battaglia il generatore vero non e' inizializzato. Noi uno ce l'abbiamo
-  (`svc_battle_rng`). **Gli intervalli restano quelli del NES esatti** — CURE
-  16-31, CUR2 32-63, CUR3 64-127, HEAL 16-23, HEL2 32-47, HEL3 64-95: cambia
-  solo che il numero non dipende piu' da QUANDO si preme il tasto, che sul NES
-  e' sfruttabile per avere sempre la cura massima.
-- **Nota di parita', non deviazione:** da una citta' WARP ed EXIT fanno la
-  stessa cosa (si torna in overworld alle coordinate d'ingresso), ed e' cosi'
-  anche sul NES — con la catena dei teletrasporti corta, WARP salta dentro il
-  codice di EXIT (bank_0E.asm:6719).
-- **Status:** implementato in slice75. Validato a MAME, 60 controlli su 60.
+### 1.12 MAGIC outside battle: three intent fixes (slice75)
+- **CUR4 refuses those who can't be healed.** On the NES it doesn't check
+  ailments — the disassembly itself says `BUGGED` (bank_0E.asm:6547):
+  cast on a fallen or petrified character it fills their HP, and they stay
+  fallen or petrified. The result is a seventh-level charge spent for
+  nothing **with the screen showing the number gone up**, i.e. the worst
+  kind of bug: the one that looks like it worked. Here it refuses like the whole
+  CURE family, and the charge isn't consumed.
+- **WARP and EXIT don't charge if there's nowhere to go.** On the NES the
+  charge is consumed anyway (`DEC ch_magicdata` before the jump). Here the
+  refusal comes before paying, as with every other menu refusal.
+- **The roll no longer comes from the frame counter.** On the NES the amount
+  healed is a masked `framecounter`, a stopgap that the disassembly comment
+  declares as such ("make-shift pRNG", bank_0E.asm:6474) because outside
+  battle the real generator isn't initialized. We have one
+  (`svc_battle_rng`). **The ranges stay exactly the NES ones** — CURE
+  16-31, CUR2 32-63, CUR3 64-127, HEAL 16-23, HEL2 32-47, HEL3 64-95: the only change
+  is that the number no longer depends on WHEN you press the button, which on the NES
+  can be exploited to always get the maximum heal.
+- **Parity note, not a deviation:** from a town WARP and EXIT do the
+  same thing (you return to the overworld at the entry coordinates), and it's the same
+  on the NES — with a short teleport chain, WARP jumps into
+  EXIT's code (bank_0E.asm:6719).
+- **Status:** implemented in slice75. Validated in MAME, 60 checks out of 60.
 
 ---
 
-### 1.13 Gli abitanti stanno FERMI (slice76)
+### 1.13 Townspeople stand STILL (slice76)
 
-**Sul NES gli abitanti di una citta' vagano.** Qui no: stanno dove il ROM li
-mette e non si spostano mai.
+**On the NES a town's townspeople wander.** Not here: they stand where the ROM
+puts them and never move.
 
-**Non e' una scelta di gusto, e' il TMS9918.** Il mapman del giocatore e' fatto
-di **quattro sprite sovrapposti** (contorno + due colori del corpo +
-incarnato), e il TMS ne mostra **quattro per scanline**: un abitante disegnato
-come sprite sarebbe il quinto e sparirebbe. E sparirebbe proprio quando lo si
-guarda, perche' per parlargli bisogna essergli di fianco -- cioe' sulle sue
-stesse scanline.
+**It's not a matter of taste, it's the TMS9918.** The player's mapman is made
+of **four overlapping sprites** (outline + two body colors +
+skin tone), and the TMS shows **four per scanline**: a townsperson drawn
+as a sprite would be the fifth and would vanish. And it would vanish exactly when you
+look at them, because to talk to them you have to be next to them -- that is, on their
+same scanlines.
 
-Gli abitanti sono quindi **tile di fondo**, e le loro quattro tile contengono
-il terreno su cui stanno: spostarli vorrebbe dire ricuocerle per ogni casella
-calpestabile della mappa.
+Townspeople are therefore **background tiles**, and their four tiles contain
+the terrain they stand on: moving them would mean rebaking them for every walkable
+cell on the map.
 
-**Cosa cambia giocando, in concreto:**
-- un abitante non si mette mai in mezzo mentre si cammina, e non si perde di
-  vista uno con cui si stava parlando. E' una perdita di vita della citta' e un
-  guadagno di prevedibilita';
-- sul NES un abitante lo si SPINGE (`mapobj_pl`) e si sposta di una casella.
-  Qui **blocca**, come un muro. La stessa condizione serve a due cose: rifiuta
-  il passo, e "essere girati verso di lui" e' l'unico modo per parlargli.
+**What changes in play, concretely:**
+- a townsperson never gets in the way while you walk, and you never lose
+  sight of one you were talking to. It's a loss of town liveliness and a
+  gain in predictability;
+- on the NES you PUSH a townsperson (`mapobj_pl`) and they move one cell.
+  Here they **block**, like a wall. The same condition serves two purposes: it refuses
+  the step, and "facing them" is the only way to talk to them.
 
-Reversibile solo con un cambio di tecnica, non di parametro.
+Reversible only with a change of technique, not of a parameter.
 
-### 1.14 Il riquadro di dialogo copre la meta' bassa, sempre (slice76)
+### 1.14 The dialogue box covers the lower half, always (slice76)
 
-Sul NES il riquadro di dialogo si apre in una posizione che dipende dallo
-scroll. Qui e' **fisso alle righe 14-23**, sotto il giocatore -- che sta
-inchiodato alla cella (15,11) e alto 16 pixel, cioe' righe 11 e 12.
+On the NES the dialogue box opens in a position that depends on the
+scroll. Here it's **fixed at rows 14-23**, below the player -- who is
+pinned to cell (15,11) and 16 pixels tall, i.e. rows 11 and 12.
 
-E' una conseguenza del movimento a scatti di macrotile ([[movement-discrete-tile]]):
-senza scroll fine, "sotto il giocatore" e' sempre lo stesso posto, e un
-riquadro che si sposta non avrebbe niente a cui adattarsi. Chi parla vede
-sempre a chi.
+It's a consequence of discrete macrotile movement ([[movement-discrete-tile]]):
+without fine scroll, "below the player" is always the same place, and a
+box that moved would have nothing to adapt to. You always see
+who you're talking to.
 
-Il testo e' **byte per byte quello di FF1**, sciolto dalla compressione DTE del
-ROM: 24 colonne e fino a 8 righe, che sono le misure vere dei dialoghi del
-gioco (misurate, e l'estrattore si ferma con un errore se un testo le supera).
+The text is **byte for byte FF1's**, unpacked from the ROM's DTE compression:
+24 columns and up to 8 rows, which are the real sizes of the
+game's dialogues (measured, and the extractor stops with an error if a text exceeds them).
 
-Tre correzioni al charset rispetto alla tabella del disassembly, tutte
-verificate contro cio' che il gioco mostra davvero:
-- **$BE e' un APOSTROFO**, non una virgoletta doppia: senza la correzione si
-  legge `Lukahn"s` invece di `Lukahn's`;
-- **$C3** (non presente nella tabella) e' la tile dei puntini di sospensione,
-  che FF1 usa sempre in coppia: diventa un punto, quindi `$C3 $C3` fa `..`;
-- **$FF** e' la tile VUOTA, cioe' uno spazio -- lasciarla nulla avrebbe
-  spostato a sinistra tutto quel che segue.
+Three charset fixes relative to the disassembly's table, all
+verified against what the game actually shows:
+- **$BE is an APOSTROPHE**, not a double quote: without the fix it
+  reads `Lukahn"s` instead of `Lukahn's`;
+- **$C3** (not in the table) is the ellipsis tile,
+  which FF1 always uses in pairs: it becomes a period, so `$C3 $C3` gives `..`;
+- **$FF** is the EMPTY tile, i.e. a space -- leaving it null would have
+  shifted everything that follows to the left.
 
-## 1bis. Deviazioni dello ZAINO (slice71 + slice73)
+## 1bis. PACK deviations (slice71 + slice73)
 
-### 1bis.1 Le quattro sfere non compaiono nella lista degli oggetti
-- **Cosa:** le caselle `$12-$15` esistono nell'inventario ma la schermata ITEM
-  le salta.
-- **Perche':** nel ROM il loro NOME E' VUOTO (sette spazi, `item_names.h`).
-  Elencarle darebbe quattro righe bianche con un `1` a destra, che non si legge
-  come "hai una sfera" ma come una lista rotta. Non e' una mancanza dei dati:
-  sul NES le sfere si mostrano nel menu principale come quattro gemme accese o
-  spente. **Debito dichiarato:** le quattro gemme, quando le sfere saranno
-  ottenibili.
-- **Status:** implementato in slice73.
+### 1bis.1 The four orbs don't appear in the item list
+- **What:** slots `$12-$15` exist in the inventory, but the ITEM screen
+  skips them.
+- **Why:** in the ROM their NAME IS EMPTY (seven spaces, `item_names.h`).
+  Listing them would give four blank rows with a `1` on the right, which doesn't read
+  as "you have an orb" but as a broken list. It's not a data gap:
+  on the NES the orbs are shown in the main menu as four lit or
+  unlit gems. **Declared debt:** the four gems, once the orbs can be
+  obtained.
+- **Status:** implemented in slice73.
 
-### 1bis.2 CASA: le cariche di magia tornano SEMPRE
-- **Cosa:** la casa rimette 120 HP a tutti e riempie tutti gli otto contatori
-  di magia.
-- **Perche':** sul NES lo fa solo a chi SALVA la partita — `MenuRecoverPartyMP`
-  e' chiamata dopo `SaveGame`, dentro il ramo "ha salvato" (`bank_0E.asm:7095`,
-  e il commento del disassemblatore dice *"some would say this is BUGGED"*).
-  Qui un salvataggio non c'e' ancora, quindi non c'e' un ramo a cui appendere
-  l'effetto: la casa fa sempre tutto. E' la lettura dell'intento, non una
-  scorciatoia — quando il salvataggio arrivera', questa scheda va riletta.
-- **Status:** implementato in slice73.
+### 1bis.2 HOUSE: magic charges ALWAYS come back
+- **What:** the house restores 120 HP to everyone and refills all eight magic
+  counters.
+- **Why:** on the NES it does so only for those who SAVE the game — `MenuRecoverPartyMP`
+  is called after `SaveGame`, inside the "has saved" branch (`bank_0E.asm:7095`,
+  and the disassembler's comment says *"some would say this is BUGGED"*).
+  Here there's no save yet, so there's no branch to hang
+  the effect on: the house always does everything. It's a reading of intent, not a
+  shortcut — when saving arrives, this entry must be re-read.
+- **Status:** implemented in slice73.
 
-### 1bis.3 SOFT rimette in piedi con UN HP
-- **Cosa:** sciogliendo la pietra, se gli HP correnti erano zero diventano 1.
-- **Perche':** sul NES `CureOBAilment` toglie il bit e basta, e un pietrificato
-  a zero HP torna un vivo a zero HP — uno stato che nel resto del gioco non
-  esiste (e che al primo colpo si comporta in modo indefinito). Un HP e' la
-  stessa regola con cui la clinica rialza i caduti (`EnterShop_Clinic`).
-- **Status:** implementato in slice73.
+### 1bis.3 SOFT brings you back up with ONE HP
+- **What:** when stone is cured, if current HP was zero it becomes 1.
+- **Why:** on the NES `CureOBAilment` just clears the bit, and a petrified character
+  at zero HP comes back as a living one at zero HP — a state that doesn't exist anywhere else
+  in the game (and that behaves in undefined ways at the first hit). One HP is the
+  same rule the clinic uses to revive the fallen (`EnterShop_Clinic`).
+- **Status:** implemented in slice73.
 
 ---
 
 ## 2. Audio
 
 ### 2.1 Bass line via AY-3-8910 SGM
-- **Cosa:** Tutti i brani usano 4 voci (SN76489 SQ1+SQ2+NOISE + AY TRI/triangle-equivalent).
-  Sul NES erano 3 (SQ1/SQ2/TRI/NOISE → 4 ma timing-shared).
-- **Perché:** SGM aggiunge AY-3-8910 (3 voci extra). Triangle/bass fidelity migliore
-  che SN76489 alone. Decisione: usare AY visto che SGM è già hard-required per RAM.
-- **Status:** ✅ Prelude, Battle Theme, OW theme — tutti 24 brani via NMI hook.
+- **What:** All songs use 4 voices (SN76489 SQ1+SQ2+NOISE + AY TRI/triangle-equivalent).
+  On the NES there were 3 (SQ1/SQ2/TRI/NOISE → 4 but timing-shared).
+- **Why:** The SGM adds the AY-3-8910 (3 extra voices). Better triangle/bass fidelity
+  than the SN76489 alone. Decision: use the AY, since the SGM is already hard-required for RAM.
+- **Status:** ✅ Prelude, Battle Theme, OW theme — all 24 songs via NMI hook.
 
 ---
 
-## 3. Bug-fix engine "intent" (vs NES ROM bugs)
+## 3. Engine "intent" bug fixes (vs NES ROM bugs)
 
-Riferimento completo: `memory/ff1_engine_intent_priorities.md` + AstralEsper guide
-in `docs/Final Fantasy - Game Mechanics Guide - NES - By AstralEsper - GameFAQs.html`.
+Full reference: `memory/ff1_engine_intent_priorities.md` + AstralEsper's
+"Game Mechanics Guide" on GameFAQs.
 
-Decisione: Coleco port fixa **tutti** i ~50 bug catalogati combat/magic della ROM
-NES. Vedi `memory/spell_bugs_ff1nes_to_fix.md` e `ff1_engine_intent_priorities.md`
-per dettaglio.
+Decision: the Coleco port fixes **all** ~50 cataloged combat/magic bugs of the NES
+ROM. See `memory/spell_bugs_ff1nes_to_fix.md` and `ff1_engine_intent_priorities.md`
+for details.
 
-Esempi top-priority:
-- CRIT% legge weapon `Crit` byte (no più Excalibur=39%, Masmune=40%)
-- Hit% formula: no clamp pre-evasion
-- TMPR/SABR/LOK2/HEL2/LOCK effect ID corretti
-- Weapon weakness bonus (+4 ATK, +40 BC) realmente applicato
-- INT stat utilizzato (era ignorato dalla ROM)
-- Status su miss → solo on hit
-- Multi-level-up loop (più livelli nella stessa battle se EXP basta)
-- Running formula corretta (era leggeva slot stato, non runner level)
-- Regen tick (mai eseguito su NES)
-- Sleep wake-roll per enemies
-- Poison DoT bidirezionale (era solo PC-side)
+Top-priority examples:
+- CRIT% reads the weapon `Crit` byte (no more Excalibur=39%, Masmune=40%)
+- Hit% formula: no pre-evasion clamp
+- TMPR/SABR/LOK2/HEL2/LOCK effect IDs corrected
+- Weapon weakness bonus (+4 ATK, +40 BC) actually applied
+- INT stat used (was ignored by the ROM)
+- Status on miss → only on hit
+- Multi-level-up loop (several levels in the same battle if EXP is enough)
+- Running formula corrected (it read the status slot, not the runner's level)
+- Regen tick (never executed on NES)
+- Sleep wake-roll for enemies
+- Bidirectional poison DoT (was PC-side only)
 
-**Status:** TBD — implementazione differita a battle/magic engine slice (post-slice24).
+**Status:** TBD — implementation deferred to the battle/magic engine slice (post-slice24).
 
-### 3.1 Palette del gruppo 2 nelle formazioni "mix" — CORRETTA (slice56)
+### 3.1 Group 2 palette in "mix" formations — FIXED (slice56)
 
-- **Cosa:** su NES, `PrepareEnemyFormation_Mix` (`bank_0B.asm:2576-2583`) fa
-  **sei** `LSR` dove ne servono cinque, e per il gruppo 2 legge quindi il bit 6
-  del nibble di assegnazione palette — cioè quello del gruppo 1 — invece del
-  bit 5. Il nostro `decode_formation` usa la formula corretta per tutti e
-  quattro i gruppi.
-- **Perché è un refuso e non un comportamento:** nella stessa routine i gruppi
-  0, 1 e 3 sono giusti (`ROL`×2, `ROL`×3, `LSR`×4 → bit 7, 6, 4), e la routine
-  gemella per 9small/4large fa il gruppo 2 con `ROL`×4, che dà correttamente il
-  bit 5. Non esiste una lettura in cui l'autore intendesse il bit 6. Verificato
-  ricontando gli shift, non solo sul commento del disassembly.
-- **Quanto pesa:** misurato da `tools/census_mix_palette_bug.ps1`. Delle 29
-  formazioni mix servono tre condizioni insieme (gruppo 2 esistente, bit 5 ≠
-  bit 6, palette diverse fra loro): **una sola** le soddisfa. È la formazione
-  `44`, presente in **un solo dominio su 128** (`0x79`), dove il **SeaTROLL**
-  uscirebbe con la palette 19 (`$30/$2C/$13`, ciano) invece della 20
-  (`$30/$22/$12`, blu).
-- **Perché correggere e non preservare:** un quirk preservato è qualcosa che il
-  gioco *fa* e che qualcuno cerca apposta — il Finger Point è una tabella di
-  incontri che i giocatori vanno a sfruttare. Qui non c'è nulla da preservare:
-  nessuna strategia, nessun ricordo e nessuna speedrun dipendono dal colore del
-  SeaTROLL in un dominio. Il colore corretto è per giunta più coerente (blu
-  marino come il resto della tavolozza). E l'asimmetria di costo chiude la
-  questione: il nostro codice è già corretto, mentre preservare il bug
-  vorrebbe dire scrivere apposta lo shift sbagliato.
-- **Status:** ✅ già così dal codice di slice55, classificato in slice56.
+- **What:** on NES, `PrepareEnemyFormation_Mix` (`bank_0B.asm:2576-2583`) does
+  **six** `LSR` where five are needed, and for group 2 it therefore reads bit 6
+  of the palette-assignment nibble — that is, group 1's — instead of
+  bit 5. Our `decode_formation` uses the correct formula for all
+  four groups.
+- **Why it's a typo and not a behavior:** in the same routine groups
+  0, 1 and 3 are right (`ROL`×2, `ROL`×3, `LSR`×4 → bits 7, 6, 4), and the
+  twin routine for 9small/4large does group 2 with `ROL`×4, which correctly gives
+  bit 5. There is no reading in which the author meant bit 6. Verified by
+  recounting the shifts, not just from the disassembly comment.
+- **How much it matters:** measured by `tools/census_mix_palette_bug.ps1`. Of the 29
+  mix formations, three conditions are needed together (group 2 present, bit 5 ≠
+  bit 6, palettes differing from each other): **only one** satisfies them. It's formation
+  `44`, present in **only one domain out of 128** (`0x79`), where the **SeaTROLL**
+  would come out with palette 19 (`$30/$2C/$13`, cyan) instead of 20
+  (`$30/$22/$12`, blue).
+- **Why fix rather than preserve:** a preserved quirk is something the
+  game *does* and that someone seeks out on purpose — the Finger Point is an
+  encounter table that players go out of their way to exploit. Here there's nothing to preserve:
+  no strategy, no memory and no speedrun depends on the color of the
+  SeaTROLL in one domain. The correct color is also more consistent (sea
+  blue like the rest of the palette). And the cost asymmetry settles the
+  question: our code is already correct, while preserving the bug
+  would mean deliberately writing the wrong shift.
+- **Status:** ✅ already this way since slice55's code, classified in slice56.
 
-### 3.2 Class change — struttura NES-fedele, due bug corretti (deciso sessione 16)
+### 3.2 Class change — NES-faithful structure, two bugs fixed (decided session 16)
 
-**La struttura resta quella del NES.** `DoClassChange` (`bank_0E.asm:1744-1766`)
-scrive un solo byte per personaggio, `ch_class += 6`, e nient'altro: nessuna
-statistica, nessun HP/MP, nessun ricalcolo. La promozione è un **attivatore di
-permessi** — equipaggiamento (`equip_bit = $800 >> class_id`,
-`bank_0E.asm:9192`) e incantesimi apprendibili (`lut_MagicPermisPtr`,
-`bank_0E.asm:6081-6086`). Le tabelle di crescita delle classi promosse puntano
-**agli stessi byte** delle basi (`lut_LevelUpDataPtrs`, `bank_0B.asm:1207-1219`),
-quindi le statistiche crescono identiche prima e dopo.
+**The structure stays the NES one.** `DoClassChange` (`bank_0E.asm:1744-1766`)
+writes a single byte per character, `ch_class += 6`, and nothing else: no
+stats, no HP/MP, no recalculation. Promotion is a **permission
+enabler** — equipment (`equip_bit = $800 >> class_id`,
+`bank_0E.asm:9192`) and learnable spells (`lut_MagicPermisPtr`,
+`bank_0E.asm:6081-6086`). The growth tables of the promoted classes point
+**to the same bytes** as the base ones (`lut_LevelUpDataPtrs`, `bank_0B.asm:1207-1219`),
+so stats grow identically before and after.
 
-Non adottiamo il differenziale di crescita introdotto dai remake (Origins, DoS,
-PSP, Pixel Remaster). Là il class change migliora la crescita, e la strategia
-ottimale diventa promuoversi al livello minimo possibile (L20) per massimizzare
-i livelli passati nella classe superiore. Sul NES il momento della promozione è
-irrilevante ai fini delle statistiche, ed è questa la versione che portiamo:
-i remake aggiungono bilanciamento, e il nostro mandato è correggere bug di
-implementazione, non riprogettare le curve.
+We don't adopt the growth differential introduced by the remakes (Origins, DoS,
+PSP, Pixel Remaster). There, class change improves growth, and the optimal
+strategy becomes promoting at the lowest possible level (L20) to maximize
+the levels spent in the upper class. On the NES the moment of promotion is
+irrelevant as far as stats go, and that's the version we're porting:
+the remakes add balancing, and our mandate is to fix implementation
+bugs, not to redesign the curves.
 
-Due cose però il NES le sbaglia, e cadono nella categoria "intent vs
-implementation" già decisa per gli altri 15 fix.
+Two things, however, the NES gets wrong, and they fall into the "intent vs
+implementation" category already decided for the other 15 fixes.
 
-**(a) Il Master perde difesa magica promuovendosi.**
+**(a) The Master loses magic defense by promoting.**
 
 ```
 lut_LvlUpMagDefBonus:  3, 2, 4, 2, 2, 2,   3, 2, 1, 2, 2, 2
                       FT TH BB RM WM BM   KN NJ MA RW WW BW
 ```
 
-`bank_0B.asm:1198`. È l'**unica** voce che differisce fra le due metà della
-tabella — hit rate è identico per tutte e sei le coppie, e ogni altra classe
-conserva il proprio bonus di MagDef. Il BlackBelt ha +4 per livello, il Master
-+1: promuovere il monaco lo peggiora, e in modo invisibile, perché il danno
-arriva livello dopo livello e non c'è nessuna schermata che lo mostri. È il
-fix #13 di `memory/ff1_engine_intent_priorities.md`, di cui ora conosciamo la
-causa: non è un "mismatch BB/MA" astratto, è il class change.
+`bank_0B.asm:1198`. It's the **only** entry that differs between the two halves of the
+table — hit rate is identical for all six pairs, and every other class
+keeps its own MagDef bonus. The BlackBelt has +4 per level, the Master
++1: promoting the monk makes him worse, and invisibly, because the damage
+comes level after level and there's no screen that shows it. It's
+fix #13 of `memory/ff1_engine_intent_priorities.md`, whose
+cause we now know: it's not an abstract "BB/MA mismatch", it's the class change.
 
-Correzione: **il Master conserva +4**, come tutte le altre classi conservano il
-proprio. Nessuna classe deve regredire promuovendosi.
+Fix: **the Master keeps +4**, just as all the other classes keep their
+own. No class should regress by promoting.
 
-**(b) Le quattro classi promosse "magiche" diventano non-morti.**
+**(b) The four "magic" promoted classes become undead.**
 
-`bank_0C.asm:7702-7706` legge la categoria del difensore giocatore dal byte di
-classe:
+`bank_0C.asm:7702-7706` reads the player defender's category from the class
+byte:
 
 ```asm
     LDY #ch_class - ch_stats        ; load category from OB
-    LDA (btl_entityptr_obrom), Y    ; BUGGED - usa la classe come categoria
+    LDA (btl_entityptr_obrom), Y    ; BUGGED - uses the class as the category
     STA btlmag_defender_category
 ```
 
-`CATEGORY_UNDEAD` è `$08` (`Constants.inc:28`), testato in `bank_0C.asm:8374`.
-Le classi 8-11 — **Master, RedWizard, WhiteWizard, BlackWizard** — hanno il bit
-3 acceso e diventano bersagli validi per HARM/HARM2. Nessuna classe base (0-5)
-ce l'ha, quindi il difetto **compare solo dopo la promozione**.
+`CATEGORY_UNDEAD` is `$08` (`Constants.inc:28`), tested in `bank_0C.asm:8374`.
+Classes 8-11 — **Master, RedWizard, WhiteWizard, BlackWizard** — have bit
+3 set and become valid targets for HARM/HARM2. No base class (0-5)
+has it, so the defect **only appears after promotion**.
 
-Che sia un refuso e non un progetto lo dice il commento stesso del
-disassembly, ma soprattutto la semantica: `ch_class` è un identificativo, non
-una maschera di categorie, e la coincidenza fra "quarta classe promossa" e
-"bit non-morto" non ha lettura sensata. Correzione: la categoria del difensore
-giocatore è **nessuna** — i personaggi non appartengono a categorie di
-creatura.
+That it's a typo and not a design is stated by the disassembly comment
+itself, but above all by the semantics: `ch_class` is an identifier, not
+a category mask, and the coincidence between "fourth promoted class" and
+"undead bit" has no sensible reading. Fix: the player defender's category
+is **none** — characters don't belong to creature
+categories.
 
-- **Status:** decisioni prese, implementazione quando arriverà la magia
-  (punto 7 di `docs/battle_engine_design.md`) e la promozione. Oggi non c'è
-  ancora né HARM né Bahamut.
+- **Status:** decisions made; implementation when magic arrives
+  (point 7 of `docs/battle_engine_design.md`) and promotion. Today there's
+  neither HARM nor Bahamut yet.
 
-### 3.3 INT — da statistica morta ad accuratezza magica (deciso sessione 16)
+### 3.3 INT — from dead stat to magic accuracy (decided session 16)
 
-Sul NES INT non fa **niente**. `ch_int` (`variables.inc:379`) ha tre soli
-riferimenti in tutta la ROM: la scrittura iniziale (`bank_0F.asm:1846`), il
-ciclo di level-up che lo incrementa (`bank_0B.asm:1014-1048`), e una lettura in
-`bank_0E.asm:228` che serve solo a **stamparlo** nella schermata di stato. Non
-viene neppure copiato in battaglia — `btl_chstats` non ha un campo INT.
+On the NES INT does **nothing**. `ch_int` (`variables.inc:379`) has only three
+references in the whole ROM: the initial write (`bank_0F.asm:1846`), the
+level-up loop that increments it (`bank_0B.asm:1014-1048`), and a read in
+`bank_0E.asm:228` that only serves to **print** it on the status screen. It
+isn't even copied into battle — `btl_chstats` has no INT field.
 
-Cresce però con curve accuratamente differenziate: il Black Mage ha l'aumento
-garantito a **ogni** livello 2→50, il Fighter in 14 livelli su 49. E il gioco
-annuncia `"Int Up!"` a fine battaglia. Era il marchio identitario del mago, ed
-è rimasto un guscio.
+Yet it grows with carefully differentiated curves: the Black Mage gets the
+increase guaranteed at **every** level 2→50, the Fighter in 14 levels out of 49. And the game
+announces `"Int Up!"` at the end of battle. It was the mage's identity mark, and
+it was left an empty shell.
 
-**Dove va agganciata.** Non lo decidiamo noi: la ROM lascia lo slot cablato e
-vuoto. `PreparePlayerMagAttack` (`bank_0C.asm:7795-7847`) carica livello, hit
-rate, danno e classe del lanciatore in variabili `btlmag_attacker_*` che
-nessuna routine legge. Il commento del disassembly sulla routine gemella dice
-che una di quelle "should probably be intelligence".
+**Where to hook it.** That isn't our call: the ROM leaves the slot wired and
+empty. `PreparePlayerMagAttack` (`bank_0C.asm:7795-7847`) loads the caster's level, hit
+rate, damage and class into `btlmag_attacker_*` variables that
+no routine reads. The disassembly comment on the twin routine says
+that one of those "should probably be intelligence".
 
-Le formule del NES:
+The NES formulas:
 
 ```
-hit_chance = 148 + spell_hitrate - target_magdef   (0 se resiste, +40 se debole)
-roll = rand[0,200] ;  colpisce se hit_chance >= roll ;  roll==200 = miss secco
+hit_chance = 148 + spell_hitrate - target_magdef   (0 if resistant, +40 if weak)
+roll = rand[0,200] ;  hits if hit_chance >= roll ;  roll==200 = automatic miss
 
-base = spell_effectivity   ( /2 se resiste, *3/2 se debole )
+base = spell_effectivity   ( /2 if resistant, *3/2 if weak )
 dmg  = rand[base, base*2]
 ```
 
-Il dettaglio che decide la scelta: per le magie di **danno**, `hit_chance` non
-stabilisce se colpiscono — colpiscono sempre — stabilisce se fanno **critico,
-cioè danno raddoppiato** (`bank_0C.asm:8285`, `8326-8332`).
+The detail that decides the choice: for **damage** spells, `hit_chance` doesn't
+determine whether they hit — they always hit — it determines whether they **crit,
+i.e. deal double damage** (`bank_0C.asm:8285`, `8326-8332`).
 
-**Decisione:**
+**Decision:**
 
 ```
 hit_chance = 148 + spell_hitrate + (INT / 4) - target_magdef
 ```
 
-Un solo aggancio, due effetti: le magie di utilità (SLEP, MUTE, LOCK, XFER)
-atterrano più spesso, e le magie d'attacco fanno più danno medio attraverso i
-critici. **La formula del danno non si tocca.**
+One hook, two effects: utility spells (SLEP, MUTE, LOCK, XFER)
+land more often, and attack spells deal more average damage through
+crits. **The damage formula is untouched.**
 
-La proprietà che ha motivato la scelta è di bilanciamento: contro bersagli
-deboli `hit_chance` sfonda già il tetto di 200, quindi INT non aggiunge nulla;
-il beneficio compare **solo contro MagDef alta**. Un mago intelligente perfora
-la resistenza magica, non gonfia il danno sui mostri banali. `INT/4` dà +0..+24
-ed è deliberatamente conservativo: la costante è un valore da misurare quando
-la magia esisterà, il punto di aggancio no.
+The property that motivated the choice is about balance: against weak
+targets `hit_chance` already breaks the 200 ceiling, so INT adds nothing;
+the benefit appears **only against high MagDef**. An intelligent mage pierces
+magic resistance, it doesn't inflate damage on trivial monsters. `INT/4` gives +0..+24
+and is deliberately conservative: the constant is a value to be measured once
+magic exists, the hook point isn't.
 
-**INT non è difesa magica**, e non per parity: perché MagDef esiste già come
-statistica vera e separata — iniziale per classe (`bank_0F.asm:1858`) più bonus
-per livello con cap 200 (`bank_0B.asm:904-909`), e non deriva dall'armatura.
-Farci confluire INT conterebbe due volte la stessa cosa. Il motivo strutturale
-è più forte ancora: i **nemici hanno MagDef ma non hanno INT**, quindi come
-difesa il calcolo sarebbe asimmetrico fra i due lati del campo, mentre come
-accuratezza l'asimmetria è voluta e leggibile.
+**INT is not magic defense**, and not for parity's sake: because MagDef already exists as a
+real, separate stat — initial per class (`bank_0F.asm:1858`) plus a
+per-level bonus capped at 200 (`bank_0B.asm:904-909`), and it doesn't derive from armor.
+Folding INT into it would count the same thing twice. The structural reason
+is stronger still: **enemies have MagDef but no INT**, so as
+defense the calculation would be asymmetric between the two sides of the field, while as
+accuracy the asymmetry is intended and readable.
 
-- **Status:** ✅ **implementato in slice69** (`int_bonus` in `src/ovl_btlmagic.c`).
-  Vale per gli incantesimi del **gruppo**, in tutte e tre le strade in cui la
-  hit chance conta: il critico delle magie di danno, l'atterraggio delle
-  alterazioni con l'effetto `$03`, e nient'altro. I mostri non ne hanno: le loro
-  venti statistiche in ROM non contengono un'intelligenza, e infatti la gemella
-  `magic_damage_on_chr` non prende il parametro.
-  Misura sul campo, corsa `mame_drive_ailments.lua`: SLEP del mago nero (INT 20,
-  cioè +5) contro un IMP (MagDef 16) dà `148 + 64 + 5 − 16 = 201` su un tiro
-  0-200, cioè atterra sempre salvo il 200 secco. Senza INT sarebbe 196: quattro
-  volte su duecento SLEP fallirebbe. È poco, ed è esattamente la scala giusta —
-  la costante `INT/4` era dichiarata conservativa e lo è.
+- **Status:** ✅ **implemented in slice69** (`int_bonus` in `src/ovl_btlmagic.c`).
+  It applies to the **party's** spells, in all three paths where the
+  hit chance matters: the crit of damage spells, the landing of
+  ailments with effect `$03`, and nothing else. Monsters don't get it: their
+  twenty stats in ROM contain no intelligence, and indeed the twin
+  `magic_damage_on_chr` doesn't take the parameter.
+  Field measurement, run `mame_drive_ailments.lua`: the black mage's SLEP (INT 20,
+  i.e. +5) against an IMP (MagDef 16) gives `148 + 64 + 5 − 16 = 201` on a
+  0-200 roll, i.e. it always lands except on a straight 200. Without INT it would be 196: four
+  times out of two hundred SLEP would fail. It's little, and it's exactly the right scale —
+  the `INT/4` constant was declared conservative and it is.
 
-### 3.3bis Il tiro dell'attaccante non dipende dal sonno del difensore (slice69)
+### 3.3bis The attacker's roll doesn't depend on the defender's sleep (slice69)
 
-`DoPhysicalAttack` (`bank_0C.asm:4364-4372`) somma il **tiro dell'attaccante**
-alla hit chance **solo se il difensore è sveglio**: il ramo `@DefenderMobile` è
-l'`else` del bonus del +25% di danno contro chi dorme o è paralizzato. Il
-disassembly stesso ci mette sopra un *"This seems strange to me. Shouldn't this
-be done even if defender is immobile? Is this BUGGED?"*.
+`DoPhysicalAttack` (`bank_0C.asm:4364-4372`) adds the **attacker's roll**
+to the hit chance **only if the defender is awake**: the `@DefenderMobile` branch is
+the `else` of the +25% damage bonus against those asleep or paralyzed. The
+disassembly itself puts a *"This seems strange to me. Shouldn't this
+be done even if defender is immobile? Is this BUGGED?"* on it.
 
-L'effetto in gioco: **addormentare un nemico peggiora la propria mira**. Non è
-un compromesso — è un `JMP` che scavalca troppo, circondato da tre bonus che si
-sommano tutti senza escludersi.
+The in-game effect: **putting an enemy to sleep worsens your own aim**. It's not
+a trade-off — it's a `JMP` that skips too far, surrounded by three bonuses that
+all add up without excluding each other.
 
-**Corretto:** il tiro si somma sempre, il +25% resta. Politica delle formule di
-combattimento (`memory/ff1_engine_intent_priorities.md`, «combat/magic =
-fix-default»). La correzione rende SLEP e HOLD quello che dovevano essere: un
-modo per colpire *meglio* chi non si muove, non solo più forte.
+**Fixed:** the roll is always added, the +25% stays. Combat formula
+policy (`memory/ff1_engine_intent_priorities.md`, «combat/magic =
+fix-default»). The fix makes SLEP and HOLD what they were meant to be: a
+way to hit *better* those who don't move, not just harder.
 
-### 3.3ter Il silenzio zittisce, non imbavaglia (slice69)
+### 3.3ter Silence silences, it doesn't gag (slice69)
 
-Sul NES `AIL_MUTE` blocca **magie, oggetti e bevande** insieme
-(`bank_0C.asm:7201`, con tanto di commento *"You could argue this is BUGGED"*).
-Qui blocca **solo le magie**: un personaggio silenziato può ancora bere una
-pozione, che è quello che il silenzio significa in ogni gioco che lo usa.
+On the NES `AIL_MUTE` blocks **spells, items and drinks** together
+(`bank_0C.asm:7201`, complete with the comment *"You could argue this is BUGGED"*).
+Here it blocks **only spells**: a silenced character can still drink a
+potion, which is what silence means in every game that uses it.
 
-Il divieto si vede **prima** di aprire il sottomenu — `SILENCED` sulla riga dei
-messaggi appena si conferma MAGIC — e si ricontrolla al momento del turno: fra
-la scelta e l'azione passa mezzo round, e in mezzo può arrivare una MUTE.
+The restriction is shown **before** opening the submenu — `SILENCED` on the
+message line as soon as MAGIC is confirmed — and is rechecked at turn time: between
+the choice and the action half a round passes, and a MUTE can arrive in between.
 
-### 3.3quater I mostri dormono davvero (slice69, fix #14)
+### 3.3quater Monsters really sleep (slice69, fix #14)
 
-Sul NES un mostro addormentato **si sveglia sempre al primo turno**. Il ramo è
-rotto in tre punti nella stessa dozzina di righe (`bank_0C.asm:6710-6730`):
-carica in `btl_mathbuf` un campo (`en_unknown12`) che nessuno inizializza,
-sottrae il numero casuale dal buffer sbagliato, e poi decide guardando un segno
-che `MathBuf_Sub` — che tronca a zero — non può mai produrre.
+On the NES a sleeping monster **always wakes up on its first turn**. The branch is
+broken in three places within the same dozen lines (`bank_0C.asm:6710-6730`):
+it loads into `btl_mathbuf` a field (`en_unknown12`) that nobody initializes,
+subtracts the random number from the wrong buffer, and then decides by looking at a sign
+that `MathBuf_Sub` — which clamps to zero — can never produce.
 
-Il risultato è che SLEP, SLP2 e HOLD contro i mostri valgono **un turno secco**,
-sempre lo stesso, indipendentemente da tutto.
+The result is that SLEP, SLP2 and HOLD against monsters are worth **exactly one turn**,
+always the same, regardless of everything.
 
-**Corretto:** i mostri usano lo stesso tiro dei personaggi, che è quello che il
-codice *dichiara* di voler fare — si svegliano se `maxHP > rand[0,80]`. Un IMP
-(8 HP massimi) resta giù circa nove turni su dieci; un mostro robusto si sveglia
-quasi subito. Misurato nella corsa: dopo due round, **3 IMP su 4 addormentati
-sono ancora giù**; col difetto NES sarebbero stati zero.
+**Fixed:** monsters use the same roll as characters, which is what the
+code *declares* it wants to do — they wake up if `maxHP > rand[0,80]`. An IMP
+(8 max HP) stays down about nine turns out of ten; a sturdy monster wakes up
+almost immediately. Measured in the run: after two rounds, **3 of 4 sleeping IMPs
+are still down**; with the NES defect it would have been zero.
 
-La paralisi invece conserva l'asimmetria del NES — 25% per i personaggi, ~10%
-per i mostri. Sono due routine diverse con due costanti diverse, non un refuso,
-e nessuna delle due liste di correzioni la nomina.
+Paralysis, on the other hand, keeps the NES asymmetry — 25% for characters, ~10%
+for monsters. They are two different routines with two different constants, not a typo,
+and neither of the two fix lists names it.
 
-### 3.3quinquies L'alterazione si legge nella striscia (slice69)
+### 3.3quinquies The ailment is readable in the strip (slice69)
 
-Ogni blocco della striscia di stato è alto quattro righe e la quarta era vuota.
-Adesso porta il nome dell'alterazione per esteso — `POISON`, `SLEEP`, `STONE`,
-`CONFUSE` — invece di niente.
+Each block of the status strip is four rows tall, and the fourth was empty.
+Now it carries the ailment's name in full — `POISON`, `SLEEP`, `STONE`,
+`CONFUSE` — instead of nothing.
 
-Non è informazione in più rispetto al NES: là il nome del personaggio cambia
-colore e la finestra di stato la scrive comunque. È che qui il TMS9918 non può
-cambiare colore a una singola riga di testo senza spendere una tabella colori,
-mentre sette caratteri liberi c'erano già.
+It's not extra information compared to the NES: there the character's name changes
+color and the status window writes it out anyway. It's just that here the TMS9918 can't
+change the color of a single line of text without spending a color table,
+while seven free characters were already there.
 
-Una sola alla volta, la più grave, come sul NES: chi è morto non è anche
-«avvelenato».
+Only one at a time, the most serious, as on the NES: someone who's dead isn't also
+«poisoned».
 
-E `LAMP` su chi ci vede benissimo dice **`INEFFECTIVE`** invece di consumare la
-carica in silenzio (`BtlMag_Effect_CureAilment` esce senza dire niente,
-`bank_0C.asm:8553`). Stessa regola di 1.6 e 1.6bis: un divieto dichiarato non
-somiglia a un difetto.
+And `LAMP` on someone who can see perfectly well says **`INEFFECTIVE`** instead of silently
+consuming the charge (`BtlMag_Effect_CureAilment` exits without saying anything,
+`bank_0C.asm:8553`). Same rule as 1.6 and 1.6bis: a declared restriction doesn't
+look like a defect.
 
-### 3.3sexies Il blocco IB — e i quattro incantesimi morti che resuscita (slice70)
+### 3.3sexies The IB block — and the four dead spells it revives (slice70)
 
-Sul NES le statistiche esistono in due copie: `ch_stats` (*out-of-battle*, quelle
-che si portano in giro) e `btl_chstats` / `btl_enstats` (*in-battle*, che nascono
-all'inizio dello scontro e muoiono con lui). Sei effetti di magia su diciotto
-scrivono nella seconda copia — FOG l'assorbimento, RUSE l'evasione, TMPR la
-forza, LOCK l'evasione di un mostro, FAST i colpi, FEAR il morale.
+On the NES stats exist in two copies: `ch_stats` (*out-of-battle*, the ones
+you carry around) and `btl_chstats` / `btl_enstats` (*in-battle*, which are born
+at the start of the fight and die with it). Six spell effects out of eighteen
+write to the second copy — FOG absorption, RUSE evasion, TMPR
+strength, LOCK a monster's evasion, FAST hits, FEAR morale.
 
-La ROM quella copia **la risalva male, e in modo diverso sui due lati**:
+The ROM **saves that copy back wrong, and differently on the two sides**:
 
-| routine | dimentica | conseguenza |
+| routine | forgets | consequence |
 |---|---|---|
-| `BtlMag_SavePlayerDefenderStats` (`bank_0C.asm:8027`) | la **forza** | TMPR e SABR non fanno niente — e bersagliano sempre un personaggio |
-| `BtlMag_SaveEnemyDefenderStats` (`bank_0C.asm:7982`) | la **resistenza elementale** | XFER non fa niente sui mostri (**fix #6**) |
+| `BtlMag_SavePlayerDefenderStats` (`bank_0C.asm:8027`) | **strength** | TMPR and SABR do nothing — and always target a character |
+| `BtlMag_SaveEnemyDefenderStats` (`bank_0C.asm:7982`) | **elemental resistance** | XFER does nothing on monsters (**fix #6**) |
 
-Due routine, due campi dimenticati, due incantesimi morti ciascuna. Qui i campi
-sono gli **stessi per le due parti del campo** e si scrivono nello stesso posto
-(`src/battle_ibstats.h`): non c'è un posto dove dimenticarne uno.
+Two routines, two forgotten fields, two dead spells each. Here the fields
+are the **same for both sides of the field** and are written in the same place
+(`src/battle_ibstats.h`): there's no place to forget one.
 
-Con il blocco, **tutti e diciotto gli effetti di battaglia funzionano.** Restano
-fuori solo LIFE, LIF2, SOFT, WARP ed EXIT, che hanno effetto `$00` perché sono
-magie da usare **fuori** dalla battaglia — e fuori dalla battaglia non c'è
-ancora un posto da cui lanciarle. Manca il menu, non il motore.
+With the block, **all eighteen battle effects work.** The only ones left
+out are LIFE, LIF2, SOFT, WARP and EXIT, which have effect `$00` because they are
+spells meant to be used **outside** battle — and outside battle there isn't
+yet a place to cast them from. What's missing is the menu, not the engine.
 
-### 3.3septies LOK2 e HEL2 — le due voci di tabella corrette (slice70)
+### 3.3septies LOK2 and HEL2 — the two corrected table entries (slice70)
 
-Le uniche due righe di `lut_MagicData` che il porting non usa alla lettera. La
-correzione sta nel motore (`patch_spell` in `src/ovl_btlmagic.c`), non
-nell'estrattore: `src/data/magic_data.h` resta byte-exact rispetto al ROM e la
-deviazione vive accanto al motivo.
+The only two rows of `lut_MagicData` that the port doesn't use literally. The
+fix lives in the engine (`patch_spell` in `src/ovl_btlmagic.c`), not
+in the extractor: `src/data/magic_data.h` stays byte-exact with respect to the ROM, and the
+deviation lives next to its reason.
 
-- **LOK2 ($17)** dichiara l'effetto `$10`, che **alza** l'evasione, e bersaglia
-  i nemici. È il contrario di quel che il nome dice e di quel che fa LOCK, la
-  sua versione debole: così com'è, LOK2 spende una carica di terzo livello per
-  rendere un mostro **più difficile** da colpire. Letta come `$0E`.
-  Il criterio, che varrebbe anche per un'altra voce dello stesso genere:
-  *nessuno potenzia il proprio nemico.*
-- **HEL2 ($23)** dichiara effectivity 48, la **stessa** di HEL3 ($33), che sta
-  due livelli sopra. 12 / 48 / 48 non è una scala; 12 / **24** / 48 lo è.
+- **LOK2 ($17)** declares effect `$10`, which **raises** evasion, and targets
+  enemies. It's the opposite of what the name says and of what LOCK, its
+  weak version, does: as it is, LOK2 spends a third-level charge to
+  make a monster **harder** to hit. Read as `$0E`.
+  The criterion, which would also apply to another entry of the same kind:
+  *nobody buffs their own enemy.*
+- **HEL2 ($23)** declares effectivity 48, the **same** as HEL3 ($33), which sits
+  two levels above. 12 / 48 / 48 is not a progression; 12 / **24** / 48 is.
 
-Più due correzioni che non toccano la tabella:
+Plus two fixes that don't touch the table:
 
-- **LOCK** (effetto `$0E`) sul NES **manca sempre**: la routine ha un `JMP` dove
-  andava un `BEQ` e salta l'intero corpo (`bank_0C.asm:8662`, annotato nel
-  disassembly). Qui il corpo si esegue.
-- **SLOW e FAST dicono la verità.** Il NES dichiara il lancio riuscito e *poi*
-  disfa l'effetto se il moltiplicatore era già al limite — così SLOW su chi è
-  già lento si annuncia come funzionante (`bank_0C.asm:8457`, "this is where the
-  'bug' is"). Qui l'esito segue il fatto, e una FAST sprecata dice
+- **LOCK** (effect `$0E`) **always misses** on the NES: the routine has a `JMP` where
+  a `BEQ` belonged and skips the whole body (`bank_0C.asm:8662`, annotated in the
+  disassembly). Here the body runs.
+- **SLOW and FAST tell the truth.** The NES declares the cast successful and *then*
+  undoes the effect if the multiplier was already at its limit — so SLOW on someone
+  already slow announces itself as working (`bank_0C.asm:8457`, "this is where the
+  'bug' is"). Here the outcome follows the facts, and a wasted FAST says
   `INEFFECTIVE`.
 
-### 3.4 Mescolamento dell'iniziativa — PRESERVATO com'è (slice59)
+### 3.4 Initiative shuffle — PRESERVED as is (slice59)
 
-`DoBattleRound` (`bank_0C.asm:3211-3244`) mescola le 13 caselle del turno con
-**16 scambi** di due posizioni pescate a caso. È un mescolamento debole, e il
-disassembly lo annota: una casella ha buone probabilità di non essere mai
-toccata, e siccome i personaggi partono in fondo alla lista tendono a
-restarci — quindi i nemici agiscono per primi più spesso di quanto un
-mescolamento onesto darebbe.
+`DoBattleRound` (`bank_0C.asm:3211-3244`) shuffles the turn's 13 slots with
+**16 swaps** of two randomly drawn positions. It's a weak shuffle, and the
+disassembly notes it: a slot has a good chance of never being
+touched, and since the characters start at the end of the list they tend to
+stay there — so the enemies act first more often than an honest
+shuffle would give.
 
-**Lo teniamo così**, ed è l'unico caso finora in cui un difetto riconosciuto
-non viene corretto. Tre ragioni, in ordine di peso:
+**We keep it this way**, and it's the only case so far where an acknowledged defect
+isn't fixed. Three reasons, in order of weight:
 
-1. **Il numero di estrazioni fa parte della sequenza.** 16 scambi = 32 chiamate
-   al generatore. Un Fisher-Yates ne farebbe 12 e sposterebbe *ogni* tiro
-   successivo del combattimento. La parity dell'intera battaglia passa di qui,
-   e la si perderebbe per un guadagno marginale.
-2. **Non è un refuso come LOK2**, che fa il contrario di ciò che dichiara.
-   Questo ciclo mescola davvero; mescola male. La distanza fra intento e
-   implementazione è di grado, non di segno — e la lista dei fix nasce per il
-   secondo caso.
-3. **La penalità è distribuita**, non concentrata: incide sul ritmo di tutta la
-   partita, non su un incontro o un incantesimo. Toglierla cambierebbe il
-   passo del gioco più di quanto lo correggerebbe.
+1. **The number of draws is part of the sequence.** 16 swaps = 32 calls
+   to the generator. A Fisher-Yates would make 12 and would shift *every* subsequent
+   roll of the fight. The parity of the whole battle goes through here,
+   and it would be lost for a marginal gain.
+2. **It's not a typo like LOK2**, which does the opposite of what it declares.
+   This loop really shuffles; it shuffles badly. The distance between intent and
+   implementation is one of degree, not of sign — and the fix list exists for the
+   second case.
+3. **The penalty is spread out**, not concentrated: it affects the pace of the whole
+   game, not one encounter or one spell. Removing it would change the
+   pace of the game more than it would correct it.
 
-- **Status:** ✅ implementato NES-exact in slice59.
+- **Status:** ✅ implemented NES-exact in slice59.
 
-### 3.5 Sconfitta — segnaposto dichiarato (slice59)
+### 3.5 Defeat — declared placeholder (slice59)
 
-Il gruppo può cadere, e `run_defeat` mostra "THE PARTY PERISHED". Poi però
-**rimette tutti in piedi con gli HP pieni** e torna in overworld.
+The party can fall, and `run_defeat` shows "THE PARTY PERISHED". But then it
+**puts everyone back on their feet with full HP** and returns to the overworld.
 
-Non è una scelta di design: la risposta di FF1 a un massacro è "ricarica il
-salvataggio", e un salvataggio non c'è ancora. Qualunque cosa si faccia qui è
-un segnaposto, e tanto vale che sia quello dichiarato invece di uno travestito
-da meccanica. Sparirà insieme al Continue vero.
+It's not a design choice: FF1's answer to a wipe is "reload the
+save", and there's no save yet. Whatever is done here is
+a placeholder, and it may as well be a declared one rather than one disguised
+as a mechanic. It will go away together with the real Continue.
 
-Manca anche il **silenzio**: il tema di battaglia continua a suonare sotto la
-scritta, perché fermarlo richiederebbe una `svc_` nuova, cioè byte nella
-finestra fissa (169 liberi). Va con la sessione dei VFX, insieme allo
-scuotimento dello schermo.
+Also missing is the **silence**: the battle theme keeps playing under the
+text, because stopping it would require a new `svc_`, i.e. bytes in the
+fixed bank (169 free). It goes with the VFX session, together with the
+screen shake.
 
-**NES quirks PRESERVATI:** vedi `memory/ff1_preserved_quirks.md` (Finger Point/PNEOP,
-forced-fight retrigger, ecc — feature beloved che restano byte-exact).
-
----
-
-## 4. Future / candidati (non ancora implementati)
-
-- **Save:** password system 4-trial (NES non aveva password, solo SRAM batteria).
-  Per Coleco senza custom cart, password = uniche scelta mainstream.
-- **Optional cart con SRAM:** se community CollectorVision risponde, edition
-  dedicata con save full mid-dungeon (NES-parity vera).
-- **Phoenix SD detection:** save su SD se Phoenix BIOS rilevato (additivo).
-- **Battle target select via keypad:** numpad 1-9 per target diretto (vs cycle).
-- **Equipment menu UX:** keypad shortcut per slot equip diretto.
-- **Subtle visual effects:** sprite zero-trick non disponibile su Coleco;
-  alternative Mode 2 raster effects via NMI ISR per HP-flash, dimming, ecc.
+**NES quirks PRESERVED:** see `memory/ff1_preserved_quirks.md` (Finger Point/PNEOP,
+forced-fight retrigger, etc — beloved features that stay byte-exact).
 
 ---
 
-## 4bis. Resa dei colori (scelte di porting, non miglioramenti)
+## 4. Future / candidates (not yet implemented)
 
-Il TMS9918 ha 15 inchiostri fissi contro i 52 del NES, e ne puo' mostrare uno
-solo per riga di tile. Le decisioni qui sotto non sono "migliorie": sono il
-modo in cui si e' scelto di PERDERE informazione, e vanno ricordate perche' un
-purista potrebbe legittimamente preferirne altre.
+- **Save:** 4-trial password system (the NES had no password, only battery SRAM).
+  For Coleco without a custom cart, password = the only mainstream choice.
+- **Optional cart with SRAM:** if the CollectorVision community responds, a dedicated
+  edition with full mid-dungeon save (true NES parity).
+- **Phoenix SD detection:** save to SD if the Phoenix BIOS is detected (additive).
+- **Battle target select via keypad:** numpad 1-9 for direct targeting (vs cycle).
+- **Equipment menu UX:** keypad shortcut for a direct equip slot.
+- **Subtle visual effects:** sprite zero-trick not available on Coleco;
+  alternative Mode 2 raster effects via NMI ISR for HP-flash, dimming, etc.
 
-- **Dominante per riga** (slice30 per i personaggi, slice55 per i nemici): dei
-  pixel accesi di ogni riga di tile vince il colore piu' frequente. Le sagome
-  restano fedeli, le sfumature orizzontali dentro una riga si perdono.
-- **Swap di palette preservato** (slice55): le varianti di nemico del NES
-  (IMP/GrIMP, WOLF/GrWOLF, SAHAG/R.SAHAG) restano distinte, perche' si salva
-  l'indice di palette e non il colore risolto. Questo e' parity piena.
-- **Collisioni di palette sciolte per vicinanza percettiva** (slice55): 13
-  palette FF1 su 64 mandano due dei tre colori sullo stesso inchiostro TMS. In
-  quei casi una delle due voci viene spostata sull'inchiostro libero piu'
-  vicino in redmean. E' una DEVIAZIONE: il colore risultante non e' quello che
-  la tabella di conversione darebbe. Senza, pero', l'IMP del primo incontro
-  avrebbe due colori invece di tre.
+---
 
-- **Abitanti: sagoma nel fondo, contorno come sprite** (slice76). In Mode 2 una
-  riga di tile ha DUE colori e un abitante di FF1 ne usa tre -- terreno, corpo,
-  contorno nero. Il fondo porta i primi due, uno sprite 16x16 nero ci mette
-  sopra il terzo. Quel che resta fuori e' il DETTAGLIO DI COLORE dentro la
-  figura: incarnato e vestito diventano un colore solo per riga (la dominante).
-  E se il giocatore si mette di fianco a un abitante, il suo contorno e' il
-  quinto sprite della scanline e cade: resta la sagoma piena, leggibile.
+## 4bis. Color rendering (porting choices, not improvements)
 
-- **Il ponte: sagoma nel fondo invece che sprite** (slice78). Sul NES il ponte
-  dell'overworld e' uno sprite 2x2 disegnato sopra l'acqua. Qui e' cotto nel
-  fondo, sopra il macrotile dell'oceano su cui poggia, per la stessa ragione
-  degli abitanti: il mapman occupa gia' i quattro sprite che il TMS mostra per
-  scanline, e il ponte sarebbe il quinto -- sparirebbe proprio mentre ci si
-  cammina sopra. Il prezzo tipico della cottura (l'oggetto non si muove) qui
-  non si paga: il ponte sta fermo in una casella per definizione.
-  Le righe di tile interamente sul ponte spendono i due colori sul tavolato e
-  sulle assi; quelle che toccano l'acqua tengono separati ponte e mare, quindi
-  li' le assi si perdono.
+The TMS9918 has 15 fixed inks versus the NES's 52, and can only show
+one per tile row. The decisions below are not "improvements": they are the
+way we chose to LOSE information, and they are worth remembering because a
+purist could legitimately prefer others.
 
-- **La title card della scena del ponte, in modo bitmap** (slice78). E' l'unica
-  schermata del progetto in cui ogni cella ha una tile propria (Mode 2: 256
-  pattern per terzo di schermo = una per cella). La figura ci sta INTERA e
-  senza riuso; quel che si perde e' solo la riduzione a due colori per riga di
-  8 pixel. Misurato sul logo di FINAL FANTASY, che e' il punto peggiore: 1,5%
-  di pixel di lettera che diventano cielo, 0,3% di cielo che diventa lettera.
+- **Per-row dominant** (slice30 for the characters, slice55 for the enemies): among the
+  lit pixels of each tile row, the most frequent color wins. The silhouettes
+  stay faithful; the horizontal shading within a row is lost.
+- **Palette swap preserved** (slice55): the NES enemy variants
+  (IMP/GrIMP, WOLF/GrWOLF, SAHAG/R.SAHAG) stay distinct, because what is saved is
+  the palette index, not the resolved color. This is full parity.
+- **Palette collisions resolved by perceptual proximity** (slice55): 13
+  FF1 palettes out of 64 send two of their three colors to the same TMS ink. In
+  those cases one of the two entries is moved to the nearest free ink
+  in redmean. It's a DEVIATION: the resulting color isn't the one that
+  the conversion table would give. Without it, though, the IMP of the first encounter
+  would have two colors instead of three.
 
-### 4ter. Il credito Nintendo NON c'e' (slice78)
+- **Townspeople: silhouette in the background, outline as a sprite** (slice76). In Mode 2 a
+  tile row has TWO colors, and an FF1 townsperson uses three -- terrain, body,
+  black outline. The background carries the first two; a black 16x16 sprite puts
+  the third on top. What's left out is the COLOR DETAIL inside the
+  figure: skin and clothes become a single color per row (the dominant).
+  And if the player stands next to a townsperson, its outline is the
+  fifth sprite on the scanline and drops: the solid silhouette remains, readable.
 
-Nella title card della scena del ponte il "TM&(C) 1990 NINTENDO" in basso a
-sinistra e' **rimosso**; il "(C)1987 SQUARE" in basso a destra **resta**.
+- **The bridge: silhouette in the background instead of a sprite** (slice78). On the NES the
+  overworld bridge is a 2x2 sprite drawn over the water. Here it's baked into the
+  background, over the ocean macrotile it rests on, for the same reason
+  as the townspeople: the mapman already takes up the four sprites the TMS shows per
+  scanline, and the bridge would be the fifth -- it would vanish right while you're
+  walking on it. The usual price of baking (the object can't move) isn't
+  paid here: the bridge stays put in one cell by definition.
+  Tile rows lying entirely on the bridge spend their two colors on the decking and
+  the planks; those touching the water keep bridge and sea separate, so
+  there the planks are lost.
 
-Non e' un limite tecnico: sono celle dell'immagine come tutte le altre, e si
-tolgono riempiendole col colore che hanno intorno (prato verde a sinistra,
-rupe nera a destra -- tinta unita in tutti e due i casi, quindi non si
-ricostruisce niente e non si vede la giuntura). E' una scelta, ed e' un
-interruttore dell'estrattore (`-DropNintendo` / `-DropSquare`):
+- **The bridge scene's title card, in bitmap mode** (slice78). It's the only
+  screen in the project where every cell has its own tile (Mode 2: 256
+  patterns per screen third = one per cell). The picture fits WHOLE and
+  without reuse; the only thing lost is the reduction to two colors per row of
+  8 pixels. Measured on the FINAL FANTASY logo, which is the worst spot: 1.5%
+  of letter pixels turning into sky, 0.3% of sky turning into letter.
 
-- **Nintendo ha pubblicato la versione NES** e con un port ColecoVision non
-  c'entra niente. Lasciare il suo marchio sarebbe un'attribuzione falsa --
-  suggerirebbe una licenza che non esiste.
-- **Square ha scritto il gioco** da cui questo port viene, e quella riga e'
-  vera. Toglierla sarebbe cancellare l'attribuzione a chi l'opera l'ha fatta.
+### 4ter. The Nintendo credit is NOT there (slice78)
 
-## 5. Filosofia
+In the bridge scene's title card, the "TM&(C) 1990 NINTENDO" at the bottom
+left is **removed**; the "(C)1987 SQUARE" at the bottom right **stays**.
 
-- **Default = NES-parity** (gameplay, balancing, encounter rates, music timing,
+It's not a technical limit: they are image cells like all the others, and they're
+removed by filling them with the color around them (green meadow on the left,
+black cliff on the right -- a solid color in both cases, so nothing gets
+reconstructed and no seam shows). It's a choice, and it's a
+switch in the extractor (`-DropNintendo` / `-DropSquare`):
+
+- **Nintendo published the NES version** and has nothing to do with a ColecoVision
+  port. Leaving its mark would be a false attribution --
+  it would suggest a license that doesn't exist.
+- **Square wrote the game** this port comes from, and that line is
+  true. Removing it would erase the attribution to those who made the work.
+
+## 5. Philosophy
+
+- **Default = NES parity** (gameplay, balancing, encounter rates, music timing,
   text content, screen layout).
-- **Aggiunte =** solo dove la NES era limitata da hardware/cart cost, e Coleco
-  permette di togliere quel limite (più RAM con SGM, keypad input, AY voce).
-- **Bug-fix =** dove c'è chiaramente "intent vs implementation" gap (AstralEsper
-  guide). Non tocchiamo bug-feature beloved (PNEOP, ecc).
-- **Stack additivi:** ogni miglioria deve essere disable-able / ignore-able da
-  player NES-purist. Niente rimozione di feature NES.
+- **Additions =** only where the NES was limited by hardware/cart cost, and the Coleco
+  allows lifting that limit (more RAM with SGM, keypad input, AY voice).
+- **Bug fixes =** where there's clearly an "intent vs implementation" gap (AstralEsper
+  guide). We don't touch beloved bug-features (PNEOP, etc).
+- **Additive stack:** every improvement must be disable-able / ignore-able by a
+  NES-purist player. No removal of NES features.
