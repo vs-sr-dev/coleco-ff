@@ -15,7 +15,10 @@ Updated: 2026-05-08 (session 6).
 - **What:** Keys `1`-`4` on the Coleco keypad jump directly to the corresponding
   CHR on the party / class-select / (in future) battle target screen.
 - **Why:** The keypad is a Coleco hardware upgrade absent on the NES. Using it
-  avoids paddy-style D-pad navigation (slow). Consistent with `design_input.md`.
+  avoids cycling through the characters one at a time with the D-pad (slow).
+  Functionally nothing changes: a battle round still starts once all four
+  commands are in, and the game still starts once all four names are in,
+  whatever the order. Consistent with `design_input.md`.
 - **Status:** ✅ implemented in slice22b (class select); to be extended to battle
   command target select and the inventory menu.
 
@@ -469,7 +472,7 @@ defense the calculation would be asymmetric between the two sides of the field, 
 accuracy the asymmetry is intended and readable.
 
 - **Status:** ✅ **implemented in slice69** (`int_bonus` in `src/ovl_btlmagic.c`).
-  It applies to the **party's** spells, in all three paths where the
+  It applies to the **party's** spells, in both paths where the
   hit chance matters: the crit of damage spells, the landing of
   ailments with effect `$03`, and nothing else. Monsters don't get it: their
   twenty stats in ROM contain no intelligence, and indeed the twin
